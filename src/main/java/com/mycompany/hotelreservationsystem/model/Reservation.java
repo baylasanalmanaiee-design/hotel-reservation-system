@@ -4,10 +4,20 @@
  */
 package com.mycompany.hotelreservationsystem.model;
 
-/**
- *
- * @author kady
- */
+
+import javax.swing.*;
+import javax.swing.table.DefaultTableModel;  // <-- مهم جداً
+
+
+
 public class Reservation {
     
+   String[] reservationColumns = {
+    "Reservation ID", "Guest Name", "Room Type",
+    "Room No", "Check-In", "Check-Out", "Status"
+    };
+DefaultTableModel reservationModel = new DefaultTableModel(reservationColumns, 0);
+JTable reservationsTable = new JTable(reservationModel);
+
+
 }

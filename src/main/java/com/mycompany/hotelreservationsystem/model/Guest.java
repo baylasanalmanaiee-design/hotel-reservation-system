@@ -4,10 +4,15 @@
  */
 package com.mycompany.hotelreservationsystem.model;
 
-/**
- *
- * @author kady
- */
+ import javax.swing.*;
+import javax.swing.table.DefaultTableModel;  // <-- مهم جداً
+
+
 public class Guest {
     
+String[] guestColumns = {"Guest ID", "Name", "Phone", "Email"};
+DefaultTableModel guestModel = new DefaultTableModel(guestColumns, 0);
+JTable guestsTable = new JTable(guestModel);
+
+
 }
