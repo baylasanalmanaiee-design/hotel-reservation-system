@@ -4,6 +4,7 @@
 
 package com.mycompany.hotelreservationsystem;
 import com.mycompany.hotelreservationsystem.ui.common.LoginForm;
+import java.sql.Connection;
 /**
  *
  * @author kady
@@ -11,6 +12,15 @@ import com.mycompany.hotelreservationsystem.ui.common.LoginForm;
 public class HotelReservationSystem {
 
     public static void main(String[] args) {
-        new LoginForm();
+        //new LoginForm();
+        Connection conn = DatabaseConnection.getConnection();
+    if (conn != null) {
+        System.out.println("Connected to database successfully!");
+    } else {
+        System.out.println("Failed to connect.");
+        }
+    //SeedData.insertSampleUsers();
+    //SeedData.insertSampleRoomTypes();
+    //SeedData.insertSampleRooms();
     }
 }
