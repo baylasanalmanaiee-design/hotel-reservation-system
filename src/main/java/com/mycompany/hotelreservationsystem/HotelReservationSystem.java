@@ -12,7 +12,7 @@ import java.sql.Connection;
 public class HotelReservationSystem {
 
     public static void main(String[] args) {
-        //new LoginForm();
+        new LoginForm();
         Connection conn = DatabaseConnection.getConnection();
     if (conn != null) {
         System.out.println("Connected to database successfully!");
