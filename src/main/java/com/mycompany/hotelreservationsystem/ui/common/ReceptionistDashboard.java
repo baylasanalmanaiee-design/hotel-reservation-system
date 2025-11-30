@@ -3,11 +3,20 @@
  * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
  */
 package com.mycompany.hotelreservationsystem.ui.common;
+
 import javax.swing.*;
+import java.awt.*;
+import com.mycompany.hotelreservationsystem.ui.reservation.NewReservationScreen;
+import com.mycompany.hotelreservationsystem.ui.reservation.ManageReservationsScreen;
+import com.mycompany.hotelreservationsystem.ui.billing.CheckInScreen;
+import com.mycompany.hotelreservationsystem.ui.billing.CheckOutScreen;
+import com.mycompany.hotelreservationsystem.ui.rooms.RoomsStatusScreen;
+
 /**
  *
  * @author kady
  */
+
 public class ReceptionistDashboard extends JFrame{
     public ReceptionistDashboard() {
         setTitle("Receptionist Dashboard");
@@ -34,13 +43,29 @@ public class ReceptionistDashboard extends JFrame{
         JButton logout = new JButton("Logout");
         logout.setBounds(100, 230, 180, 30);
 
-       
-        newRes.addActionListener(e -> JOptionPane.showMessageDialog(this, "Coming Soon"));
-        manageRes.addActionListener(e -> JOptionPane.showMessageDialog(this, "Coming Soon"));
-        checkIn.addActionListener(e -> JOptionPane.showMessageDialog(this, "Coming Soon"));
-        checkOut.addActionListener(e -> JOptionPane.showMessageDialog(this, "Coming Soon"));
-        roomStatus.addActionListener(e -> JOptionPane.showMessageDialog(this, "Coming Soon"));
-        logout.addActionListener(e -> System.exit(0));
+        // تنسيق الأزرار
+        styleButton(newRes, new Color(70, 130, 180)); // أزرق
+        styleButton(manageRes, new Color(40, 167, 69)); // أخضر
+        styleButton(checkIn, new Color(255, 193, 7)); // أصفر
+        styleButton(checkOut, new Color(220, 53, 69)); // أحمر
+        styleButton(roomStatus, new Color(111, 66, 193)); // بنفسجي
+        styleButton(logout, new Color(108, 117, 125)); // رمادي
+
+        // Action Listeners
+        newRes.addActionListener(e -> openNewReservation());
+        manageRes.addActionListener(e -> openManageReservations());
+        checkIn.addActionListener(e -> openCheckIn());
+        checkOut.addActionListener(e -> openCheckOut());
+        roomStatus.addActionListener(e -> openRoomsStatus());
+        logout.addActionListener(e -> {
+            int confirm = JOptionPane.showConfirmDialog(this, 
+                "Are you sure you want to logout?", "Confirm Logout", 
+                JOptionPane.YES_NO_OPTION);
+            if (confirm == JOptionPane.YES_OPTION) {
+                dispose();
+                new LoginForm().setVisible(true); //  open Login screen
+            }
+        });
 
         add(newRes);
         add(manageRes);
@@ -50,5 +75,44 @@ public class ReceptionistDashboard extends JFrame{
         add(logout);
 
         setVisible(true);
+    }
+
+    // دالة لتنسيق الأزرار
+    private void styleButton(JButton button, Color color) {
+        button.setBackground(color);
+        button.setForeground(Color.WHITE);
+        button.setFocusPainted(false);
+        button.setFont(new Font("Arial", Font.BOLD, 12));
+    }
+
+    // دوال فتح الشاشات
+    private void openNewReservation() {
+        NewReservationScreen newResScreen = new NewReservationScreen(this);
+        newResScreen.setVisible(true);
+    }
+
+    private void openManageReservations() {
+        ManageReservationsScreen manageScreen = new ManageReservationsScreen(this);
+        manageScreen.setVisible(true);
+    }
+
+    private void openCheckIn() {
+        CheckInScreen checkInScreen = new CheckInScreen(this);
+        checkInScreen.setVisible(true);
+    }
+
+    private void openCheckOut() {
+        CheckOutScreen checkOutScreen = new CheckOutScreen(this);
+        checkOutScreen.setVisible(true);
+    }
+
+    private void openRoomsStatus() {
+        RoomsStatusScreen roomsScreen = new RoomsStatusScreen(this);
+        roomsScreen.setVisible(true);
+    }
+
+    // main method for test
+    public static void main(String[] args) {
+        new ReceptionistDashboard();
     }
 }
