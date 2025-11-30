@@ -4,15 +4,34 @@
  */
 package com.mycompany.hotelreservationsystem.model;
 
- import javax.swing.*;
-import javax.swing.table.DefaultTableModel;  // <-- مهم جداً
-
-
+/**
+ *
+ * @author kady
+ */
 public class Guest {
-    
-String[] guestColumns = {"Guest ID", "Name", "Phone", "Email"};
-DefaultTableModel guestModel = new DefaultTableModel(guestColumns, 0);
-JTable guestsTable = new JTable(guestModel);
+    private int id;
+    private String fullName;
+    private String phone;
+    private String idNumber;
 
+    public Guest() {}
 
+    public Guest(int id, String fullName, String phone, String idNumber) {
+        this.id = id;
+        this.fullName = fullName;
+        this.phone = phone;
+        this.idNumber = idNumber;
+    }
+
+    public int getId() { return id; }
+    public void setId(int id) { this.id = id; }
+
+    public String getFullName() { return fullName; }
+    public void setFullName(String fullName) { this.fullName = fullName; }
+
+    public String getPhone() { return phone; }
+    public void setPhone(String phone) { this.phone = phone; }
+
+    public String getIdNumber() { return idNumber; }
+    public void setIdNumber(String idNumber) { this.idNumber = idNumber; }
 }
