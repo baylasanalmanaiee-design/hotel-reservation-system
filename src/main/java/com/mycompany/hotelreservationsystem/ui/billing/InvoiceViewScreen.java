@@ -2,179 +2,161 @@
  * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
  * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
  */
+
 package com.mycompany.hotelreservationsystem.ui.billing;
 
 /**
  *
- * @author abeer
+ * @author Aroob
  */
 
 import javax.swing.*;
 import java.awt.*;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
 
 public class InvoiceViewScreen extends JDialog {
+
     private JTextArea txtInvoiceDetails;
     private JButton btnPrint, btnExportPDF, btnClose;
     private String reservationId;
-    
+
     public InvoiceViewScreen(JFrame parent, String reservationId) {
         super(parent, "Invoice Details - " + reservationId, true);
         this.reservationId = reservationId;
+
         setSize(600, 500);
         setLocationRelativeTo(parent);
-        
-        initializeComponents();
+
+        initUI();
         loadInvoiceData();
     }
-    
-    // Constructor بديل 
+
     public InvoiceViewScreen(JFrame parent) {
         this(parent, "UNKNOWN");
     }
-    
-    private void initializeComponents() {
+
+    private void initUI() {
         JPanel mainPanel = new JPanel(new BorderLayout(10, 10));
         mainPanel.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
-        
-        // Invoice Details Panel
-        JPanel detailsPanel = createDetailsPanel();
-        
-        // Buttons Panel
-        JPanel buttonPanel = createButtonPanel();
-        
-        mainPanel.add(detailsPanel, BorderLayout.CENTER);
-        mainPanel.add(buttonPanel, BorderLayout.SOUTH);
-        
+
+        mainPanel.add(createInvoicePanel(), BorderLayout.CENTER);
+        mainPanel.add(createButtonPanel(), BorderLayout.SOUTH);
+
         add(mainPanel);
     }
-    
-    private JPanel createDetailsPanel() {
+
+    private JPanel createInvoicePanel() {
         JPanel panel = new JPanel(new BorderLayout());
         panel.setBorder(BorderFactory.createTitledBorder("Invoice Details"));
-        
+
         txtInvoiceDetails = new JTextArea(20, 50);
         txtInvoiceDetails.setEditable(false);
         txtInvoiceDetails.setFont(new Font("Monospaced", Font.PLAIN, 12));
-        txtInvoiceDetails.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
-        
+
         JScrollPane scrollPane = new JScrollPane(txtInvoiceDetails);
         panel.add(scrollPane, BorderLayout.CENTER);
-        
+
         return panel;
     }
-    
+
     private JPanel createButtonPanel() {
         JPanel panel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
-        
+
         btnPrint = new JButton("Print");
         btnExportPDF = new JButton("Export PDF");
         btnClose = new JButton("Close");
-        
-        btnPrint.setBackground(new Color(70, 130, 180));
-        btnPrint.setForeground(Color.WHITE);
-        btnExportPDF.setBackground(new Color(220, 53, 69));
-        btnExportPDF.setForeground(Color.WHITE);
-        btnClose.setBackground(new Color(108, 117, 125));
-        btnClose.setForeground(Color.WHITE);
-        
-        btnPrint.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                printInvoice();
-            }
-        });
-        
-        btnExportPDF.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                exportToPDF();
-            }
-        });
-        
-        btnClose.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                dispose();
-            }
-        });
-        
+
+        styleButton(btnPrint, new Color(70, 130, 180));
+        styleButton(btnExportPDF, new Color(220, 53, 69));
+        styleButton(btnClose, new Color(108, 117, 125));
+
+        btnPrint.addActionListener(e -> printInvoice());
+        btnExportPDF.addActionListener(e -> exportPDF());
+        btnClose.addActionListener(e -> dispose());
+
         panel.add(btnPrint);
         panel.add(btnExportPDF);
         panel.add(btnClose);
-        
+
         return panel;
     }
-    
+
+    private void styleButton(JButton btn, Color color) {
+        btn.setBackground(color);
+        btn.setForeground(Color.WHITE);
+        btn.setFocusPainted(false);
+        btn.setFont(new Font("Arial", Font.BOLD, 12));
+    }
+
     private void loadInvoiceData() {
-        // invoice data - replace with actual database data
+
         StringBuilder invoice = new StringBuilder();
+
         invoice.append("============================================\n");
-        invoice.append("              HOTEL INVOICE\n");
+        invoice.append("                 HOTEL INVOICE\n");
         invoice.append("============================================\n\n");
+
         invoice.append("Invoice No: INV-").append(reservationId).append("\n");
         invoice.append("Reservation ID: ").append(reservationId).append("\n");
         invoice.append("Date: ").append(java.time.LocalDate.now()).append("\n");
         invoice.append("Guest: John Smith\n");
         invoice.append("Room: 101 (Single)\n");
-        invoice.append("Period: 2024-01-15 to 2024-01-20 (5 nights)\n\n");
+        invoice.append("Stay: 2024-01-15 to 2024-01-20 (5 nights)\n\n");
+
         invoice.append("--------------------------------------------\n");
-        invoice.append("CHARGES:\n");
+        invoice.append("CHARGES\n");
         invoice.append("--------------------------------------------\n");
+
         invoice.append(String.format("%-30s $%.2f\n", "Room Charges (5 nights)", 500.00));
-        invoice.append(String.format("%-30s $%.2f\n", "Tax (10%)", 50.00));
+        invoice.append(String.format("%-30s $%.2f\n", "Tax 10%", 50.00));
         invoice.append(String.format("%-30s $%.2f\n", "Service Fee", 25.00));
         invoice.append(String.format("%-30s $%.2f\n", "Mini Bar", 45.50));
         invoice.append(String.format("%-30s $%.2f\n", "Late Check-out Penalty", 30.00));
+
         invoice.append("--------------------------------------------\n");
         invoice.append(String.format("%-30s $%.2f\n", "SUBTOTAL", 650.50));
-        invoice.append(String.format("%-30s $%.2f\n", "Discount", -50.00));
+        invoice.append(String.format("%-30s -$%.2f\n", "Discount", 50.00));
         invoice.append("--------------------------------------------\n");
         invoice.append(String.format("%-30s $%.2f\n", "TOTAL AMOUNT", 600.50));
         invoice.append(String.format("%-30s $%.2f\n", "Deposit Paid", 100.00));
-        invoice.append(String.format("%-30s $%.2f\n", "REMAINING BALANCE", 500.50));
+        invoice.append(String.format("%-30s $%.2f\n", "BALANCE DUE", 500.50));
         invoice.append("============================================\n");
         invoice.append("Thank you for staying with us!\n");
-        
+
         txtInvoiceDetails.setText(invoice.toString());
     }
-    
+
     private void printInvoice() {
         try {
             if (txtInvoiceDetails.print()) {
-                JOptionPane.showMessageDialog(this, "Invoice sent to printer successfully!");
+                JOptionPane.showMessageDialog(this, "Invoice printed successfully!");
             } else {
-                JOptionPane.showMessageDialog(this, "Printing cancelled.");
+                JOptionPane.showMessageDialog(this, "Printing was cancelled.");
             }
         } catch (Exception ex) {
-            JOptionPane.showMessageDialog(this, 
-                "Error printing invoice: " + ex.getMessage(), 
-                "Print Error", 
-                JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(this,
+                    "Print Error: " + ex.getMessage(),
+                    "Error",
+                    JOptionPane.ERROR_MESSAGE);
         }
     }
-    
-    private void exportToPDF() {
-        // implementation for PDF export
-        JOptionPane.showMessageDialog(this, 
-            "PDF export feature would be implemented here!\n" +
-            "Invoice for " + reservationId + " is ready for export.", 
-            "Export PDF", 
-            JOptionPane.INFORMATION_MESSAGE);
+
+    private void exportPDF() {
+        JOptionPane.showMessageDialog(this,
+                "PDF export feature will be implemented later.\n" +
+                "Reservation: " + reservationId,
+                "Export PDF",
+                JOptionPane.INFORMATION_MESSAGE);
     }
-    
-    // دالة مساعدة إذا احتجت أحدث الفاتورة
-    public void updateReservationId(String newReservationId) {
-        this.reservationId = newReservationId;
+
+    public void updateReservationId(String newId) {
+        this.reservationId = newId;
         setTitle("Invoice Details - " + reservationId);
         loadInvoiceData();
     }
-    
-    // main method for testing 
+
     public static void main(String[] args) {
         JFrame frame = new JFrame();
-        InvoiceViewScreen invoiceScreen = new InvoiceViewScreen(frame, "TEST123");
-        invoiceScreen.setVisible(true);
+        InvoiceViewScreen screen = new InvoiceViewScreen(frame, "TEST123");
+        screen.setVisible(true);
     }
 }
