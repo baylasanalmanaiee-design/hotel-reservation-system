@@ -22,8 +22,8 @@ public class HotelReservationSystem {
     } else {
         System.out.println("Failed to connect.");
         }
-    SeedData.insertSampleUsers();
-    SeedData.insertSampleRoomTypes();
-    SeedData.insertSampleRooms();
+    //SeedData.insertSampleUsers();
+    //SeedData.insertSampleRoomTypes();
+    //SeedData.insertSampleRooms();
     }
 }
