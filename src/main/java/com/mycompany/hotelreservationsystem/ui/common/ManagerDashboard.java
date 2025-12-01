@@ -1,16 +1,16 @@
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
- */
 package com.mycompany.hotelreservationsystem.ui.common;
 
 import javax.swing.*;
 import java.awt.*;
-
 /**
  *
  * @author kady
  */
+
+import com.mycompany.hotelreservationsystem.ui.rooms.RoomsStatusScreen;
+import com.mycompany.hotelreservationsystem.ui.reservation.ManageReservationsScreen;
+import com.mycompany.hotelreservationsystem.ui.billing.InvoiceViewScreen;
+
 public class ManagerDashboard extends JFrame {
 
     public ManagerDashboard() {
@@ -45,15 +45,15 @@ public class ManagerDashboard extends JFrame {
         JButton logout = new JButton("Logout");
         logout.setBounds(135, 270, 180, 30);
 
-        // نفس فكرة الرسبشن: تنسيق الأزرار بألوان مختلفة
-        styleButton(manageRooms,       new Color(70, 130, 180));  // أزرق
-        styleButton(manageRoomTypes,   new Color(40, 167, 69));   // أخضر
-        styleButton(roomStatus,        new Color(111, 66, 193));  // بنفسجي
-        styleButton(reservationsReport,new Color(255, 193, 7));   // أصفر
-        styleButton(incomeReport,      new Color(23, 162, 184));  // سماوي
-        styleButton(logout,            new Color(108, 117, 125)); // رمادي
+        // نفس ستايل الرسبشن
+        styleButton(manageRooms,        new Color(70, 130, 180));  // أزرق
+        styleButton(manageRoomTypes,    new Color(40, 167, 69));   // أخضر
+        styleButton(roomStatus,         new Color(111, 66, 193));  // بنفسجي
+        styleButton(reservationsReport, new Color(255, 193, 7));   // أصفر
+        styleButton(incomeReport,       new Color(23, 162, 184));  // سماوي
+        styleButton(logout,             new Color(108, 117, 125)); // رمادي
 
-        // Action Listeners (الحين نسويها بدوال خاصة، زي الرسبشن)
+        // ربط الأزرار بالشاشات
         manageRooms.addActionListener(e -> openManageRooms());
         manageRoomTypes.addActionListener(e -> openManageRoomTypes());
         roomStatus.addActionListener(e -> openRoomStatus());
@@ -83,7 +83,7 @@ public class ManagerDashboard extends JFrame {
         setVisible(true);
     }
 
-    // دالة لتنسيق الأزرار (نفس اللي في الرسبشن)
+    // تنسيق الأزرار
     private void styleButton(JButton button, Color color) {
         button.setBackground(color);
         button.setForeground(Color.WHITE);
@@ -91,33 +91,42 @@ public class ManagerDashboard extends JFrame {
         button.setFont(new Font("Arial", Font.BOLD, 12));
     }
 
-    // الدوال حالياً تعرض رسائل فقط، لين البنات يربطون شاشاتهم الحقيقية
+    // الدوال اللي تفتح الشاشات
+
+    // هذي لسه TODO لأن ما عندكم شاشة ManageRooms جاهزة
     private void openManageRooms() {
-        // TODO: استبدلي الرسالة بفتح شاشة إدارة الغرف لما تجهز
-        JOptionPane.showMessageDialog(this, "Manage Rooms coming soon...");
+        JOptionPane.showMessageDialog(this,
+                "Manage Rooms screen will be linked here later.");
+        // مثال مستقبلي:
+        // new ManageRoomsScreen(this).setVisible(true);
     }
 
     private void openManageRoomTypes() {
-        // TODO: استبدليها بفتح شاشة أنواع الغرف
-        JOptionPane.showMessageDialog(this, "Room Types coming soon...");
+        JOptionPane.showMessageDialog(this,
+                "Manage Room Types screen will be linked here later.");
+        // مثال:
+        // new ManageRoomTypesScreen(this).setVisible(true);
     }
 
     private void openRoomStatus() {
-        // TODO: فتح شاشة حالة الغرف
-        JOptionPane.showMessageDialog(this, "Room Status coming soon...");
+        // هذه مرتبطة فعلياً بشاشة حالة الغرف
+        RoomsStatusScreen screen = new RoomsStatusScreen(this);
+        screen.setVisible(true);
     }
 
     private void openReservationsReport() {
-        // TODO: فتح شاشة تقارير الحجوزات
-        JOptionPane.showMessageDialog(this, "Reservations Report coming soon...");
+        // حالياً نخليها تفتح شاشة إدارة الحجوزات
+        ManageReservationsScreen screen = new ManageReservationsScreen(this);
+        screen.setVisible(true);
     }
 
     private void openIncomeReport() {
-        // TODO: فتح شاشة تقارير الدخل
-        JOptionPane.showMessageDialog(this, "Income Report coming soon...");
+        // نفتح شاشة عرض الفواتير/الدخل
+        InvoiceViewScreen screen = new InvoiceViewScreen(this);
+        screen.setVisible(true);
     }
 
-    // main للتجربة لو حبيتي تشغلينها لحالها
+    // main للتجربة
     public static void main(String[] args) {
         new ManagerDashboard();
     }
