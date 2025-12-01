@@ -8,9 +8,10 @@ package com.mycompany.hotelreservationsystem.ui.reservation;
  *
  * @author Bilsan
  */
+import com.mycompany.hotelreservationsystem.model.Reservation;
 import javax.swing.*;
 
-public class ReservationDetailsForm extends JFrame {
+/*public class ReservationDetailsForm extends JFrame {
 
     public ReservationDetailsForm() {
 
@@ -52,3 +53,38 @@ public class ReservationDetailsForm extends JFrame {
         setVisible(true);
     }
 }
+*/
+
+
+public class ReservationDetailsForm extends JFrame {
+
+    public ReservationDetailsForm(Reservation r) {
+
+        setTitle("Reservation Details");
+        setSize(420, 260);
+        setLocationRelativeTo(null);
+        setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+        setLayout(null);
+
+        JLabel idLabel = new JLabel("Reservation ID: " + r.getId());
+        idLabel.setBounds(40, 40, 300, 25);
+
+        JLabel guestLabel = new JLabel("Guest ID: " + r.getGuestId());
+        guestLabel.setBounds(40, 80, 300, 25);
+
+        JLabel roomLabel = new JLabel("Room ID: " + r.getRoomId());
+        roomLabel.setBounds(40, 120, 300, 25);
+
+        JLabel dateLabel = new JLabel("Stay: " + r.getCheckInDate() + " → " + r.getCheckOutDate());
+        dateLabel.setBounds(40, 160, 300, 25);
+
+        add(idLabel);
+        add(guestLabel);
+        add(roomLabel);
+        add(dateLabel);
+
+        setVisible(true);
+    }
+}
+
+

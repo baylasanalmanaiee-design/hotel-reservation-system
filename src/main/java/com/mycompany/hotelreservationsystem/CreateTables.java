@@ -21,6 +21,8 @@ public class CreateTables {
         createDiscountsTable();
         createInvoicesTable();
         createPaymentsTable();
+        ///////waitlist
+        createWaitlistTable();
     }
 
     private static void createUsersTable() {
@@ -128,6 +130,21 @@ public class CreateTables {
             """;
         execute(sql, "payments");
     }
+    //////////waitlist
+    private static void createWaitlistTable() {
+    String sql = """
+        CREATE TABLE IF NOT EXISTS waitlist (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            guest_id INTEGER NOT NULL,
+            room_type_id INTEGER NOT NULL,
+            check_in TEXT NOT NULL,
+            check_out TEXT NOT NULL,
+            added_at TEXT NOT NULL
+        );
+        """;
+    execute(sql, "waitlist");
+}
+
 
     private static void execute(String sql, String tableName) {
         try (Connection conn = DatabaseConnection.getConnection();
