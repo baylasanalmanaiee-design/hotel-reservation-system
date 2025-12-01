@@ -26,7 +26,7 @@ public class CreateTables {
     private static void createUsersTable() {
         String sql = """
             CREATE TABLE IF NOT EXISTS users (
-                user_id    INTEGER PRIMARY KEY AUTOINCREMENT,
+                id    INTEGER PRIMARY KEY AUTOINCREMENT,
                 username   TEXT NOT NULL,
                 password   TEXT NOT NULL,
                 role       TEXT NOT NULL

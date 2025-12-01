@@ -12,6 +12,9 @@ import java.sql.Connection;
 public class HotelReservationSystem {
 
     public static void main(String[] args) {
+        //CreateTables.createAllTables();  
+        //System.out.println("Database created successfully!");
+
         new LoginForm();
         Connection conn = DatabaseConnection.getConnection();
     if (conn != null) {
@@ -19,8 +22,8 @@ public class HotelReservationSystem {
     } else {
         System.out.println("Failed to connect.");
         }
-    //SeedData.insertSampleUsers();
-    //SeedData.insertSampleRoomTypes();
-    //SeedData.insertSampleRooms();
+    SeedData.insertSampleUsers();
+    SeedData.insertSampleRoomTypes();
+    SeedData.insertSampleRooms();
     }
 }

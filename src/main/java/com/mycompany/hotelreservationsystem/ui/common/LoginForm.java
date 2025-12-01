@@ -4,6 +4,9 @@
  */
 package com.mycompany.hotelreservationsystem.ui.common;
 import javax.swing.*;
+import com.mycompany.hotelreservationsystem.dao.UserDAO;
+import com.mycompany.hotelreservationsystem.model.User;
+
 /**
  *
  * @author kady
@@ -53,22 +56,34 @@ public class LoginForm extends JFrame{
 
         
         loginBtn.addActionListener(e -> {
-            String u = userField.getText();
-            String p = new String(passField.getPassword());
+        String username = userField.getText().trim();
+        String password = new String(passField.getPassword()).trim();
 
-            if (u.equals("manager") && p.equals("112211")) {
-                JOptionPane.showMessageDialog(this, "Welcome Manager");
-                new ManagerDashboard();
-                dispose();
-            }
-            else if (u.equals("reception") && p.equals("990099")) {
-                JOptionPane.showMessageDialog(this, "Welcome Receptionist");
-                new ReceptionistDashboard();
-                dispose();
-            }
-            else {
-                JOptionPane.showMessageDialog(this, "Wrong credentials!");
-            }
-        });
+        if (username.isEmpty() || password.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Please fill all fields!");
+            return;
+        }
+
+        // استدعاء DAO
+        UserDAO dao = new UserDAO();
+        User user = dao.validateLogin(username, password);
+
+        if (user == null) {
+            JOptionPane.showMessageDialog(this, "Invalid username or password!");
+            return;
+        }
+
+        // لو موجود - نفتح الداشبورد حسب الدور (role)
+        JOptionPane.showMessageDialog(this, "Welcome " + user.getUsername());
+
+        if (user.getRole().equalsIgnoreCase("manager")) {
+            new ManagerDashboard().setVisible(true);
+        } else if (user.getRole().equalsIgnoreCase("receptionist")) {
+            new ReceptionistDashboard().setVisible(true);
+        }
+
+        dispose(); // نسكر صفحة اللوق ان
+    });
+
     }
 }
