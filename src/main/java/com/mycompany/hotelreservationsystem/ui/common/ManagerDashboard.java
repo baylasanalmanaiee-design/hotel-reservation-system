@@ -10,6 +10,10 @@ import java.awt.*;
 import com.mycompany.hotelreservationsystem.ui.rooms.RoomsStatusScreen;
 import com.mycompany.hotelreservationsystem.ui.reservation.ManageReservationsScreen;
 import com.mycompany.hotelreservationsystem.ui.billing.InvoiceViewScreen;
+import com.mycompany.hotelreservationsystem.ui.rooms.RoomsStatusScreen;
+import com.mycompany.hotelreservationsystem.ui.rooms.ManageRoomsScreen;
+import com.mycompany.hotelreservationsystem.ui.rooms.ManageRoomTypesScreen;
+
 
 public class ManagerDashboard extends JFrame {
 
@@ -95,18 +99,17 @@ public class ManagerDashboard extends JFrame {
 
     // هذي لسه TODO لأن ما عندكم شاشة ManageRooms جاهزة
     private void openManageRooms() {
-        JOptionPane.showMessageDialog(this,
-                "Manage Rooms screen will be linked here later.");
-        // مثال مستقبلي:
-        // new ManageRoomsScreen(this).setVisible(true);
-    }
+       // تفتح شاشة إدارة الغرف
+       ManageRoomsScreen screen = new ManageRoomsScreen(this);
+       screen.setVisible(true);
+   }
 
-    private void openManageRoomTypes() {
-        JOptionPane.showMessageDialog(this,
-                "Manage Room Types screen will be linked here later.");
-        // مثال:
-        // new ManageRoomTypesScreen(this).setVisible(true);
-    }
+   private void openManageRoomTypes() {
+       // تفتح شاشة أنواع الغرف
+       ManageRoomTypesScreen screen = new ManageRoomTypesScreen(this);
+       screen.setVisible(true);
+   }
+
 
     private void openRoomStatus() {
         // هذه مرتبطة فعلياً بشاشة حالة الغرف
