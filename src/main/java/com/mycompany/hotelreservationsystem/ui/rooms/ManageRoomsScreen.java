@@ -10,29 +10,29 @@ package com.mycompany.hotelreservationsystem.ui.rooms;
  */
 
 
+import com.mycompany.hotelreservationsystem.dao.RoomDAO;
 import com.mycompany.hotelreservationsystem.model.Room;
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
-import java.util.ArrayList;
 import java.util.List;
 
 public class ManageRoomsScreen extends JDialog {
     private JTable roomsTable;
     private DefaultTableModel tableModel;
     private JButton btnAdd, btnEdit, btnDelete, btnRefresh;
-    private List<Room> roomsList; // List لتخزين الغرف محلياً
+    private RoomDAO roomDAO;
     
     public ManageRoomsScreen(JFrame parent) {
         super(parent, "Manage Rooms", true);
         setSize(700, 450);
         setLocationRelativeTo(parent);
         
-        roomsList = new ArrayList<>();
+        roomDAO = new RoomDAO();
         initializeComponents();
-        loadSampleData();
+        loadRoomsData();
     }
     
     private void initializeComponents() {
@@ -119,7 +119,7 @@ public class ManageRoomsScreen extends JDialog {
         btnRefresh.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                loadSampleData();
+                loadRoomsData();
             }
         });
         
@@ -131,31 +131,32 @@ public class ManageRoomsScreen extends JDialog {
         return panel;
     }
     
-    private void loadSampleData() {
+    private void loadRoomsData() {
         tableModel.setRowCount(0);
-        roomsList.clear();
         
-        // بيانات تجريبية باستخدام Model الحالي
-        Room room1 = new Room(1, 101, 1, "Available");
-        Room room2 = new Room(2, 102, 1, "Occupied");
-        Room room3 = new Room(3, 201, 2, "Available");
-        Room room4 = new Room(4, 202, 2, "Cleaning Required");
-        Room room5 = new Room(5, 301, 3, "Maintenance");
-        
-        roomsList.add(room1);
-        roomsList.add(room2);
-        roomsList.add(room3);
-        roomsList.add(room4);
-        roomsList.add(room5);
-        
-        for (Room room : roomsList) {
-            Object[] row = {
-                room.getId(),
-                room.getRoomNumber(),
-                room.getRoomTypeId(),
-                room.getStatus()
-            };
-            tableModel.addRow(row);
+        try {
+            List<Room> rooms = roomDAO.getAllRooms();
+            if (rooms.isEmpty()) {
+                JOptionPane.showMessageDialog(this, 
+                    "No rooms found in database.", 
+                    "Info", 
+                    JOptionPane.INFORMATION_MESSAGE);
+            }
+            
+            for (Room room : rooms) {
+                Object[] row = {
+                    room.getId(),
+                    room.getRoomNumber(),
+                    room.getRoomTypeId(),
+                    room.getStatus()
+                };
+                tableModel.addRow(row);
+            }
+        } catch (Exception e) {
+            JOptionPane.showMessageDialog(this, 
+                "Error loading rooms: " + e.getMessage(),
+                "Database Error", 
+                JOptionPane.ERROR_MESSAGE);
         }
     }
     
@@ -188,29 +189,52 @@ public class ManageRoomsScreen extends JDialog {
             @Override
             public void actionPerformed(ActionEvent e) {
                 try {
-                    // إنشاء كائن Room جديد
-                    int newId = roomsList.size() + 1;
+                    // التحقق من المدخلات
+                    if (txtRoomNumber.getText().trim().isEmpty() || 
+                        txtRoomTypeId.getText().trim().isEmpty()) {
+                        JOptionPane.showMessageDialog(addDialog, 
+                            "Please fill all required fields!", 
+                            "Validation Error", 
+                            JOptionPane.WARNING_MESSAGE);
+                        return;
+                    }
+                    
                     int roomNumber = Integer.parseInt(txtRoomNumber.getText());
                     int roomTypeId = Integer.parseInt(txtRoomTypeId.getText());
                     String status = cmbStatus.getSelectedItem().toString();
                     
-                    Room newRoom = new Room(newId, roomNumber, roomTypeId, status);
+                    // إنشاء كائن Room جديد
+                    Room newRoom = new Room();
+                    newRoom.setRoomNumber(roomNumber);
+                    newRoom.setRoomTypeId(roomTypeId);
+                    newRoom.setStatus(status);
                     
-                    // إضافة للقائمة والجدول
-                    roomsList.add(newRoom);
+                    // استخدام DAO لإضافة الغرفة
+                    int newId = roomDAO.addRoom(newRoom);
                     
-                    Object[] row = {
-                        newRoom.getId(),
-                        newRoom.getRoomNumber(),
-                        newRoom.getRoomTypeId(),
-                        newRoom.getStatus()
-                    };
-                    tableModel.addRow(row);
-                    
-                    JOptionPane.showMessageDialog(addDialog, "Room added successfully!");
-                    addDialog.dispose();
+                    if (newId != -1) {
+                        JOptionPane.showMessageDialog(addDialog, 
+                            "Room added successfully! ID: " + newId,
+                            "Success", 
+                            JOptionPane.INFORMATION_MESSAGE);
+                        addDialog.dispose();
+                        loadRoomsData();
+                    } else {
+                        JOptionPane.showMessageDialog(addDialog, 
+                            "Failed to add room!", 
+                            "Error", 
+                            JOptionPane.ERROR_MESSAGE);
+                    }
+                } catch (NumberFormatException ex) {
+                    JOptionPane.showMessageDialog(addDialog, 
+                        "Please enter valid numbers for room number and type ID!", 
+                        "Input Error", 
+                        JOptionPane.WARNING_MESSAGE);
                 } catch (Exception ex) {
-                    JOptionPane.showMessageDialog(addDialog, "Error: " + ex.getMessage());
+                    JOptionPane.showMessageDialog(addDialog, 
+                        "Error: " + ex.getMessage(), 
+                        "Error", 
+                        JOptionPane.ERROR_MESSAGE);
                 }
             }
         });
@@ -239,8 +263,17 @@ public class ManageRoomsScreen extends JDialog {
             return;
         }
         
-        // الحصول على الـ Room من القائمة
-        Room selectedRoom = roomsList.get(selectedRow);
+        int roomId = Integer.parseInt(tableModel.getValueAt(selectedRow, 0).toString());
+        
+        // جلب بيانات الغرفة من الداتابيز
+        Room selectedRoom = roomDAO.getRoomById(roomId);
+        if (selectedRoom == null) {
+            JOptionPane.showMessageDialog(this, 
+                "Room not found in database!", 
+                "Error", 
+                JOptionPane.ERROR_MESSAGE);
+            return;
+        }
         
         JDialog editDialog = new JDialog(this, "Edit Room", true);
         editDialog.setSize(350, 200);
@@ -271,20 +304,32 @@ public class ManageRoomsScreen extends JDialog {
             @Override
             public void actionPerformed(ActionEvent e) {
                 try {
-                    // تحديث كائن Room
+                    // تحديث بيانات الغرفة
                     selectedRoom.setRoomNumber(Integer.parseInt(txtRoomNumber.getText()));
                     selectedRoom.setRoomTypeId(Integer.parseInt(txtRoomTypeId.getText()));
                     selectedRoom.setStatus(cmbStatus.getSelectedItem().toString());
                     
-                    // تحديث الجدول
-                    tableModel.setValueAt(selectedRoom.getRoomNumber(), selectedRow, 1);
-                    tableModel.setValueAt(selectedRoom.getRoomTypeId(), selectedRow, 2);
-                    tableModel.setValueAt(selectedRoom.getStatus(), selectedRow, 3);
+                    // استخدام DAO لتحديث الغرفة
+                    boolean success = roomDAO.updateRoom(selectedRoom);
                     
-                    JOptionPane.showMessageDialog(editDialog, "Room updated successfully!");
-                    editDialog.dispose();
+                    if (success) {
+                        JOptionPane.showMessageDialog(editDialog, 
+                            "Room updated successfully!", 
+                            "Success", 
+                            JOptionPane.INFORMATION_MESSAGE);
+                        editDialog.dispose();
+                        loadRoomsData(); // إعادة تحميل البيانات
+                    } else {
+                        JOptionPane.showMessageDialog(editDialog, 
+                            "Failed to update room!", 
+                            "Error", 
+                            JOptionPane.ERROR_MESSAGE);
+                    }
                 } catch (Exception ex) {
-                    JOptionPane.showMessageDialog(editDialog, "Error: " + ex.getMessage());
+                    JOptionPane.showMessageDialog(editDialog, 
+                        "Error: " + ex.getMessage(), 
+                        "Error", 
+                        JOptionPane.ERROR_MESSAGE);
                 }
             }
         });
@@ -313,8 +358,8 @@ public class ManageRoomsScreen extends JDialog {
             return;
         }
         
-        int roomId = (int) tableModel.getValueAt(selectedRow, 0);
-        int roomNumber = (int) tableModel.getValueAt(selectedRow, 1);
+        int roomId = Integer.parseInt(tableModel.getValueAt(selectedRow, 0).toString());
+        int roomNumber = Integer.parseInt(tableModel.getValueAt(selectedRow, 1).toString());
         
         int confirm = JOptionPane.showConfirmDialog(this,
                 "Are you sure you want to delete room?\n" +
@@ -323,10 +368,27 @@ public class ManageRoomsScreen extends JDialog {
                 "Confirm Delete", JOptionPane.YES_NO_OPTION);
         
         if (confirm == JOptionPane.YES_OPTION) {
-            // حذف من القائمة والجدول
-            roomsList.remove(selectedRow);
-            tableModel.removeRow(selectedRow);
-            JOptionPane.showMessageDialog(this, "Room deleted successfully!");
+            try {
+                boolean success = roomDAO.deleteRoom(roomId);
+                
+                if (success) {
+                    JOptionPane.showMessageDialog(this, 
+                        "Room deleted successfully!", 
+                        "Success", 
+                        JOptionPane.INFORMATION_MESSAGE);
+                    loadRoomsData(); // إعادة تحميل البيانات
+                } else {
+                    JOptionPane.showMessageDialog(this, 
+                        "Failed to delete room!", 
+                        "Error", 
+                        JOptionPane.ERROR_MESSAGE);
+                }
+            } catch (Exception e) {
+                JOptionPane.showMessageDialog(this, 
+                    "Error deleting room: " + e.getMessage(),
+                    "Database Error", 
+                    JOptionPane.ERROR_MESSAGE);
+            }
         }
     }
 }

@@ -9,29 +9,29 @@ package com.mycompany.hotelreservationsystem.ui.rooms;
  * @author abeer
  */
 
+import com.mycompany.hotelreservationsystem.dao.RoomTypeDAO;
 import com.mycompany.hotelreservationsystem.model.RoomType;
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
-import java.util.ArrayList;
 import java.util.List;
 
 public class ManageRoomTypesScreen extends JDialog {
     private JTable typesTable;
     private DefaultTableModel tableModel;
     private JButton btnAdd, btnEdit, btnDelete, btnRefresh;
-    private List<RoomType> roomTypesList; // List لتخزين أنواع الغرف محلياً
+    private RoomTypeDAO roomTypeDAO;
     
     public ManageRoomTypesScreen(JFrame parent) {
         super(parent, "Manage Room Types", true);
         setSize(600, 400);
         setLocationRelativeTo(parent);
         
-        roomTypesList = new ArrayList<>();
+        roomTypeDAO = new RoomTypeDAO();
         initializeComponents();
-        loadSampleData();
+        loadRoomTypesData();
     }
     
     private void initializeComponents() {
@@ -118,7 +118,7 @@ public class ManageRoomTypesScreen extends JDialog {
         btnRefresh.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                loadSampleData();
+                loadRoomTypesData();
             }
         });
         
@@ -130,28 +130,31 @@ public class ManageRoomTypesScreen extends JDialog {
         return panel;
     }
     
-    private void loadSampleData() {
+    private void loadRoomTypesData() {
         tableModel.setRowCount(0);
-        roomTypesList.clear();
         
-        // بيانات تجريبية باستخدام Model الحالي
-        RoomType type1 = new RoomType(1, "Single", 100.00);
-        RoomType type2 = new RoomType(2, "Double", 150.00);
-        RoomType type3 = new RoomType(3, "Suite", 250.00);
-        RoomType type4 = new RoomType(4, "Deluxe", 350.00);
-        
-        roomTypesList.add(type1);
-        roomTypesList.add(type2);
-        roomTypesList.add(type3);
-        roomTypesList.add(type4);
-        
-        for (RoomType type : roomTypesList) {
-            Object[] row = {
-                type.getId(),
-                type.getName(),
-                String.format("$%.2f", type.getBasePrice())
-            };
-            tableModel.addRow(row);
+        try {
+            List<RoomType> roomTypes = roomTypeDAO.getAllRoomTypes();
+            if (roomTypes.isEmpty()) {
+                JOptionPane.showMessageDialog(this, 
+                    "No room types found in database.", 
+                    "Info", 
+                    JOptionPane.INFORMATION_MESSAGE);
+            }
+            
+            for (RoomType type : roomTypes) {
+                Object[] row = {
+                    type.getId(),
+                    type.getName(),
+                    String.format("$%.2f", type.getBasePrice())
+                };
+                tableModel.addRow(row);
+            }
+        } catch (Exception e) {
+            JOptionPane.showMessageDialog(this, 
+                "Error loading room types: " + e.getMessage(),
+                "Database Error", 
+                JOptionPane.ERROR_MESSAGE);
         }
     }
     
@@ -178,27 +181,59 @@ public class ManageRoomTypesScreen extends JDialog {
             @Override
             public void actionPerformed(ActionEvent e) {
                 try {
-                    // إنشاء كائن RoomType جديد
-                    int newId = roomTypesList.size() + 1;
+                    // التحقق من المدخلات
+                    if (txtTypeName.getText().trim().isEmpty() || 
+                        txtBasePrice.getText().trim().isEmpty()) {
+                        JOptionPane.showMessageDialog(addDialog, 
+                            "Please fill all required fields!", 
+                            "Validation Error", 
+                            JOptionPane.WARNING_MESSAGE);
+                        return;
+                    }
+                    
                     String typeName = txtTypeName.getText();
                     double basePrice = Double.parseDouble(txtBasePrice.getText());
                     
-                    RoomType newRoomType = new RoomType(newId, typeName, basePrice);
+                    // التحقق من أن السعر موجب
+                    if (basePrice <= 0) {
+                        JOptionPane.showMessageDialog(addDialog, 
+                            "Base price must be greater than 0!", 
+                            "Input Error", 
+                            JOptionPane.WARNING_MESSAGE);
+                        return;
+                    }
                     
-                    // إضافة للقائمة والجدول
-                    roomTypesList.add(newRoomType);
+                    // إنشاء كائن RoomType جديد
+                    RoomType roomType = new RoomType();
+                    roomType.setName(typeName);
+                    roomType.setBasePrice(basePrice);
                     
-                    Object[] row = {
-                        newRoomType.getId(),
-                        newRoomType.getName(),
-                        String.format("$%.2f", newRoomType.getBasePrice())
-                    };
-                    tableModel.addRow(row);
+                    // استخدام DAO لإضافة نوع الغرفة
+                    int newId = roomTypeDAO.addRoomType(roomType);
                     
-                    JOptionPane.showMessageDialog(addDialog, "Room type added successfully!");
-                    addDialog.dispose();
+                    if (newId != -1) {
+                        JOptionPane.showMessageDialog(addDialog, 
+                            "Room type added successfully! ID: " + newId,
+                            "Success", 
+                            JOptionPane.INFORMATION_MESSAGE);
+                        addDialog.dispose();
+                        loadRoomTypesData();
+                    } else {
+                        JOptionPane.showMessageDialog(addDialog, 
+                            "Failed to add room type!", 
+                            "Error", 
+                            JOptionPane.ERROR_MESSAGE);
+                    }
+                } catch (NumberFormatException ex) {
+                    JOptionPane.showMessageDialog(addDialog, 
+                        "Please enter valid number for base price!", 
+                        "Input Error", 
+                        JOptionPane.WARNING_MESSAGE);
                 } catch (Exception ex) {
-                    JOptionPane.showMessageDialog(addDialog, "Error: " + ex.getMessage());
+                    JOptionPane.showMessageDialog(addDialog, 
+                        "Error: " + ex.getMessage(), 
+                        "Error", 
+                        JOptionPane.ERROR_MESSAGE);
                 }
             }
         });
@@ -231,8 +266,17 @@ public class ManageRoomTypesScreen extends JDialog {
             return;
         }
         
-        // الحصول على الـ RoomType من القائمة
-        RoomType selectedType = roomTypesList.get(selectedRow);
+        int typeId = Integer.parseInt(tableModel.getValueAt(selectedRow, 0).toString());
+        
+        // جلب بيانات نوع الغرفة من الداتابيز
+        RoomType selectedType = roomTypeDAO.getRoomTypeById(typeId);
+        if (selectedType == null) {
+            JOptionPane.showMessageDialog(this, 
+                "Room type not found in database!", 
+                "Error", 
+                JOptionPane.ERROR_MESSAGE);
+            return;
+        }
         
         JDialog editDialog = new JDialog(this, "Edit Room Type", true);
         editDialog.setSize(350, 200);
@@ -256,18 +300,45 @@ public class ManageRoomTypesScreen extends JDialog {
             @Override
             public void actionPerformed(ActionEvent e) {
                 try {
-                    // تحديث كائن RoomType
+                    // تحديث بيانات نوع الغرفة
                     selectedType.setName(txtTypeName.getText());
                     selectedType.setBasePrice(Double.parseDouble(txtBasePrice.getText()));
                     
-                    // تحديث الجدول
-                    tableModel.setValueAt(selectedType.getName(), selectedRow, 1);
-                    tableModel.setValueAt(String.format("$%.2f", selectedType.getBasePrice()), selectedRow, 2);
+                    // التحقق من أن السعر موجب
+                    if (selectedType.getBasePrice() <= 0) {
+                        JOptionPane.showMessageDialog(editDialog, 
+                            "Base price must be greater than 0!", 
+                            "Input Error", 
+                            JOptionPane.WARNING_MESSAGE);
+                        return;
+                    }
                     
-                    JOptionPane.showMessageDialog(editDialog, "Room type updated successfully!");
-                    editDialog.dispose();
+                    // استخدام DAO لتحديث نوع الغرفة
+                    boolean success = roomTypeDAO.updateRoomType(selectedType);
+                    
+                    if (success) {
+                        JOptionPane.showMessageDialog(editDialog, 
+                            "Room type updated successfully!", 
+                            "Success", 
+                            JOptionPane.INFORMATION_MESSAGE);
+                        editDialog.dispose();
+                        loadRoomTypesData(); // إعادة تحميل البيانات
+                    } else {
+                        JOptionPane.showMessageDialog(editDialog, 
+                            "Failed to update room type!", 
+                            "Error", 
+                            JOptionPane.ERROR_MESSAGE);
+                    }
+                } catch (NumberFormatException ex) {
+                    JOptionPane.showMessageDialog(editDialog, 
+                        "Please enter valid number for base price!", 
+                        "Input Error", 
+                        JOptionPane.WARNING_MESSAGE);
                 } catch (Exception ex) {
-                    JOptionPane.showMessageDialog(editDialog, "Error: " + ex.getMessage());
+                    JOptionPane.showMessageDialog(editDialog, 
+                        "Error: " + ex.getMessage(), 
+                        "Error", 
+                        JOptionPane.ERROR_MESSAGE);
                 }
             }
         });
@@ -300,7 +371,7 @@ public class ManageRoomTypesScreen extends JDialog {
             return;
         }
         
-        int typeId = (int) tableModel.getValueAt(selectedRow, 0);
+        int typeId = Integer.parseInt(tableModel.getValueAt(selectedRow, 0).toString());
         String typeName = tableModel.getValueAt(selectedRow, 1).toString();
         
         int confirm = JOptionPane.showConfirmDialog(this,
@@ -310,10 +381,27 @@ public class ManageRoomTypesScreen extends JDialog {
                 "Confirm Delete", JOptionPane.YES_NO_OPTION);
         
         if (confirm == JOptionPane.YES_OPTION) {
-            // حذف من القائمة والجدول
-            roomTypesList.remove(selectedRow);
-            tableModel.removeRow(selectedRow);
-            JOptionPane.showMessageDialog(this, "Room type deleted successfully!");
+            try {
+                boolean success = roomTypeDAO.deleteRoomType(typeId);
+                
+                if (success) {
+                    JOptionPane.showMessageDialog(this, 
+                        "Room type deleted successfully!", 
+                        "Success", 
+                        JOptionPane.INFORMATION_MESSAGE);
+                    loadRoomTypesData(); // إعادة تحميل البيانات
+                } else {
+                    JOptionPane.showMessageDialog(this, 
+                        "Failed to delete room type!", 
+                        "Error", 
+                        JOptionPane.ERROR_MESSAGE);
+                }
+            } catch (Exception e) {
+                JOptionPane.showMessageDialog(this, 
+                    "Error deleting room type: " + e.getMessage(),
+                    "Database Error", 
+                    JOptionPane.ERROR_MESSAGE);
+            }
         }
     }
 }

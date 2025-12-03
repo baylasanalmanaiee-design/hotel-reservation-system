@@ -9,23 +9,33 @@ package com.mycompany.hotelreservationsystem.ui.rooms;
  * @author abeer
  */
 
+import com.mycompany.hotelreservationsystem.dao.RoomDAO;
+import com.mycompany.hotelreservationsystem.model.Room;
 import javax.swing.*;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.util.List;
 
 public class RoomsStatusScreen extends JDialog {
     private JTable roomsTable;
     private DefaultTableModel tableModel;
     private JButton btnRefresh, btnUpdateStatus;
+    private RoomDAO roomDAO;
     
     public RoomsStatusScreen(JFrame parent) {
         super(parent, "Rooms Status", true);
         setSize(800, 500);
         setLocationRelativeTo(parent);
         
+        roomDAO = new RoomDAO();
+        initializeComponents();
+        loadRoomsData();
+    }
+    
+    private void initializeComponents() {
         JPanel mainPanel = new JPanel(new BorderLayout(10, 10));
         mainPanel.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
         
@@ -39,13 +49,12 @@ public class RoomsStatusScreen extends JDialog {
         mainPanel.add(buttonPanel, BorderLayout.SOUTH);
         
         add(mainPanel);
-        loadRoomsData();
     }
     
     private JPanel createTablePanel() {
         JPanel panel = new JPanel(new BorderLayout());
         
-        String[] columns = {"Room No", "Type", "Floor", "Status", "Last Update"};
+        String[] columns = {"Room No", "Room ID", "Room Type ID", "Status"};
         tableModel = new DefaultTableModel(columns, 0) {
             @Override
             public Class<?> getColumnClass(int column) {
@@ -54,7 +63,7 @@ public class RoomsStatusScreen extends JDialog {
             
             @Override
             public boolean isCellEditable(int row, int column) {
-                return false; // Make table non-editable
+                return false;
             }
         };
         
@@ -103,31 +112,41 @@ public class RoomsStatusScreen extends JDialog {
     }
     
     private void loadRoomsData() {
-        // Clear existing data
         tableModel.setRowCount(0);
         
-        // Sample data - replace with actual database data
-        Object[][] sampleData = {
-            {"101", "Single", "1", "Available", "2024-01-15 10:30"},
-            {"102", "Single", "1", "Occupied", "2024-01-15 14:20"},
-            {"103", "Double", "1", "Cleaning Required", "2024-01-15 11:45"},
-            {"104", "Double", "1", "Available", "2024-01-15 09:15"},
-            {"105", "Suite", "1", "Maintenance", "2024-01-14 16:00"},
-            {"201", "Double", "2", "Available", "2024-01-15 08:00"},
-            {"202", "Suite", "2", "Occupied", "2024-01-15 12:30"},
-            {"203", "Suite", "2", "Available", "2024-01-15 07:45"},
-            {"301", "Single", "3", "Cleaning Required", "2024-01-15 13:15"},
-            {"302", "Double", "3", "Occupied", "2024-01-15 15:00"}
-        };
-        
-        for (Object[] row : sampleData) {
-            tableModel.addRow(row);
+        try {
+            List<Room> rooms = roomDAO.getAllRooms();
+            if (rooms.isEmpty()) {
+                JOptionPane.showMessageDialog(this, 
+                    "No rooms found in database.", 
+                    "Info", 
+                    JOptionPane.INFORMATION_MESSAGE);
+                return;
+            }
+            
+            for (Room room : rooms) {
+                Object[] row = {
+                    room.getRoomNumber(),
+                    room.getId(),
+                    room.getRoomTypeId(),
+                    room.getStatus()
+                };
+                tableModel.addRow(row);
+            }
+        } catch (Exception e) {
+            JOptionPane.showMessageDialog(this, 
+                "Error loading rooms: " + e.getMessage(),
+                "Database Error", 
+                JOptionPane.ERROR_MESSAGE);
         }
     }
     
     private void refreshData() {
         loadRoomsData();
-        JOptionPane.showMessageDialog(this, "Rooms data refreshed successfully!", "Refresh", JOptionPane.INFORMATION_MESSAGE);
+        JOptionPane.showMessageDialog(this, 
+            "Rooms data refreshed successfully!", 
+            "Refresh", 
+            JOptionPane.INFORMATION_MESSAGE);
     }
     
     private void updateRoomStatus() {
@@ -140,15 +159,19 @@ public class RoomsStatusScreen extends JDialog {
             return;
         }
         
-        String roomNo = tableModel.getValueAt(selectedRow, 0).toString();
+        int roomNumber = Integer.parseInt(tableModel.getValueAt(selectedRow, 0).toString());
+        int roomId = Integer.parseInt(tableModel.getValueAt(selectedRow, 1).toString());
         String currentStatus = tableModel.getValueAt(selectedRow, 3).toString();
-        String roomType = tableModel.getValueAt(selectedRow, 1).toString();
+        int roomTypeId = Integer.parseInt(tableModel.getValueAt(selectedRow, 2).toString());
         
         String[] statusOptions = {"Available", "Occupied", "Cleaning Required", "Maintenance"};
         String newStatus = (String) JOptionPane.showInputDialog(
             this,
-            "Update status for Room " + roomNo + " (" + roomType + ")\nCurrent Status: " + currentStatus,
-            "Update Room Status - Room " + roomNo,
+            "Update status for Room " + roomNumber + 
+            "\nRoom ID: " + roomId + 
+            "\nType ID: " + roomTypeId +
+            "\nCurrent Status: " + currentStatus,
+            "Update Room Status - Room " + roomNumber,
             JOptionPane.QUESTION_MESSAGE,
             null,
             statusOptions,
@@ -156,14 +179,35 @@ public class RoomsStatusScreen extends JDialog {
         );
         
         if (newStatus != null && !newStatus.equals(currentStatus)) {
-            // Update the status in the table
-            tableModel.setValueAt(newStatus, selectedRow, 3);
-            tableModel.setValueAt(java.time.LocalDateTime.now().toString().replace("T", " ").substring(0, 16), selectedRow, 4);
-            
-            JOptionPane.showMessageDialog(this, 
-                "Room " + roomNo + " status updated to: " + newStatus, 
-                "Status Updated", 
-                JOptionPane.INFORMATION_MESSAGE);
+            try {
+                // استخدام DAO لتحديث حالة الغرفة
+                boolean success = roomDAO.updateRoomStatus(roomNumber, newStatus);
+                
+                if (success) {
+                    // تحديث الجدول
+                    tableModel.setValueAt(newStatus, selectedRow, 3);
+                    
+                    // تحديث وقت التحديث
+                    String currentTime = java.time.LocalDateTime.now()
+                        .toString().replace("T", " ").substring(0, 16);
+                    
+                    JOptionPane.showMessageDialog(this, 
+                        "Room " + roomNumber + " status updated to: " + newStatus + 
+                        "\nUpdated at: " + currentTime, 
+                        "Status Updated", 
+                        JOptionPane.INFORMATION_MESSAGE);
+                } else {
+                    JOptionPane.showMessageDialog(this, 
+                        "Failed to update room status!", 
+                        "Error", 
+                        JOptionPane.ERROR_MESSAGE);
+                }
+            } catch (Exception e) {
+                JOptionPane.showMessageDialog(this, 
+                    "Error updating status: " + e.getMessage(),
+                    "Database Error", 
+                    JOptionPane.ERROR_MESSAGE);
+            }
         }
     }
     
@@ -209,7 +253,7 @@ public class RoomsStatusScreen extends JDialog {
         }
     }
     
-    // Method to get room status count (useful for statistics)
+    // Method to get room status count
     public java.util.Map<String, Integer> getRoomStatusCount() {
         java.util.Map<String, Integer> statusCount = new java.util.HashMap<>();
         statusCount.put("Available", 0);
@@ -217,18 +261,16 @@ public class RoomsStatusScreen extends JDialog {
         statusCount.put("Cleaning Required", 0);
         statusCount.put("Maintenance", 0);
         
-        for (int i = 0; i < tableModel.getRowCount(); i++) {
-            String status = tableModel.getValueAt(i, 3).toString();
-            statusCount.put(status, statusCount.get(status) + 1);
+        try {
+            List<Room> rooms = roomDAO.getAllRooms();
+            for (Room room : rooms) {
+                String status = room.getStatus();
+                statusCount.put(status, statusCount.getOrDefault(status, 0) + 1);
+            }
+        } catch (Exception e) {
+            System.out.println("Error getting room status count: " + e.getMessage());
         }
         
         return statusCount;
-    }
-    
-    // main method for testing
-    public static void main(String[] args) {
-        JFrame frame = new JFrame();
-        RoomsStatusScreen roomsScreen = new RoomsStatusScreen(frame);
-        roomsScreen.setVisible(true);
     }
 }
