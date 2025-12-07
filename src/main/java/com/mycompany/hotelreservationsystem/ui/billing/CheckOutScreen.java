@@ -189,7 +189,12 @@ public class CheckOutScreen extends JDialog {
             tableModel.addRow(new Object[]{"", ""});
             
             double subtotal = 500.00 + 50.00 + 25.00 + 35.50 + 25.00 + 30.00;
-            double discount = Double.parseDouble(txtDiscount.getText());
+            double discount = 0.0;
+            try {
+                discount = Double.parseDouble(txtDiscount.getText());
+            } catch (NumberFormatException ex) {
+                discount = 0.0;
+            }
             double total = subtotal - discount;
             
             tableModel.addRow(new Object[]{"SUBTOTAL", String.format("$%.2f", subtotal)});
@@ -220,9 +225,20 @@ public class CheckOutScreen extends JDialog {
     
     // convert "RES002 - Sarah ..." -> 2 (for DB reservation_id)
     private int parseReservationId(String comboText) {
-        String onlyDigits = comboText.replaceAll("\\D+", "");
-        if (onlyDigits.isEmpty()) return 0;
-        return Integer.parseInt(onlyDigits);
+        // "RES002 - Sarah Johnson - Room 205"
+        String[] parts = comboText.split(" - ");
+        if (parts.length == 0) return 0;
+
+        String code = parts[0].trim(); // "RES002"
+        if (code.startsWith("RES")) {
+            String num = code.substring(3); // "002"
+            try {
+                return Integer.parseInt(num);
+            } catch (NumberFormatException e) {
+                return 0;
+            }
+        }
+        return 0;
     }
     
     private void generateInvoice() {
@@ -235,19 +251,18 @@ public class CheckOutScreen extends JDialog {
         double subtotal = getAmountFromRow("SUBTOTAL");
         double discountAmount = getAmountFromRow("DISCOUNT");
         double totalAmount = getAmountFromRow("TOTAL AMOUNT");
-        double taxAmount = 0.0; // already included in subtotal in this demo
+        double taxAmount = 0.0; // tax already included in subtotal in this demo
 
         String selectedItem = cmbReservations.getSelectedItem().toString();
         int reservationDbId = parseReservationId(selectedItem);
         
-        // build invoice model (Aroob work)
+        // build invoice model (without تعديل كلاس Invoice)
         Invoice invoice = new Invoice();
         invoice.setReservationId(reservationDbId);
-        invoice.setSubtotal(subtotal);
-        invoice.setDiscountAmount(discountAmount);
-        invoice.setTaxAmount(taxAmount);
-        invoice.setTotalAmount(totalAmount);
-        invoice.setCreatedAt(java.time.LocalDateTime.now().toString());
+
+        // ✨ أهم شي هنا: نستخدم الدوال الموجودة في Invoice فقط
+        invoice.setAmount(totalAmount); // نخزن total فقط
+        invoice.setDate(java.time.LocalDateTime.now().toString());
         
         int invoiceId = InvoiceDAO.insert(invoice);
         
