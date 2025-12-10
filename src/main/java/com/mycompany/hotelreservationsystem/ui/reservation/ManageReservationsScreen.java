@@ -228,19 +228,63 @@ public class ManageReservationsScreen extends JDialog {
         details.setVisible(true);
     }
 
-    private void editReservation() {
-        int row = reservationsTable.getSelectedRow();
-        if (row == -1) {
-            JOptionPane.showMessageDialog(this, "Please select a reservation first.");
-            return;
+  private void editReservation() {
+    int row = reservationsTable.getSelectedRow();
+    if (row == -1) {
+        JOptionPane.showMessageDialog(this, "Please select a reservation first.");
+        return;
+    }
+
+    String resIdStr = tableModel.getValueAt(row, 0).toString();
+    String oldCheckIn = tableModel.getValueAt(row, 3).toString();
+    String oldCheckOut = tableModel.getValueAt(row, 4).toString();
+
+    String newCheckIn = JOptionPane.showInputDialog(
+            this,
+            "Enter new Check-In date (YYYY-MM-DD):",
+            oldCheckIn
+    );
+
+    if (newCheckIn == null || newCheckIn.trim().isEmpty()) {
+        return; // user cancelled
+    }
+
+    String newCheckOut = JOptionPane.showInputDialog(
+            this,
+            "Enter new Check-Out date (YYYY-MM-DD):",
+            oldCheckOut
+    );
+
+    if (newCheckOut == null || newCheckOut.trim().isEmpty()) {
+        return;
+    }
+
+    int resId = Integer.parseInt(resIdStr);
+
+    try (Connection conn = DatabaseConnection.getConnection();
+         PreparedStatement stmt = conn.prepareStatement(
+                 "UPDATE reservations SET check_in_date=?, check_out_date=? WHERE reservation_id=?")) {
+
+        stmt.setString(1, newCheckIn.trim());
+        stmt.setString(2, newCheckOut.trim());
+        stmt.setInt(3, resId);
+
+        int updated = stmt.executeUpdate();
+        if (updated > 0) {
+            JOptionPane.showMessageDialog(this, "Reservation updated successfully!");
+            loadReservationsFromDB();
+        } else {
+            JOptionPane.showMessageDialog(this, "No changes were made.");
         }
 
-        String reservationId = tableModel.getValueAt(row, 0).toString();
+    } catch (Exception e) {
         JOptionPane.showMessageDialog(this,
-                "Edit reservation: " + reservationId + "\n(Edit form can be implemented here)",
-                "Edit Reservation",
-                JOptionPane.INFORMATION_MESSAGE);
+                "Error updating reservation:\n" + e.getMessage(),
+                "Error",
+                JOptionPane.ERROR_MESSAGE);
     }
+}
+
 
     private void cancelReservation() {
         int row = reservationsTable.getSelectedRow();

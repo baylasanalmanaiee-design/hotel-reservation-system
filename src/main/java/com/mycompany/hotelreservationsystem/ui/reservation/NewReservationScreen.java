@@ -42,15 +42,15 @@ public class NewReservationScreen extends JDialog {
         setSize(900, 600);
         setLocationRelativeTo(parent);
 
-        JPanel mainPanel = new JPanel(new BorderLayout(10, 10));
+       /* JPanel mainPanel = new JPanel(new BorderLayout(10, 10));
         mainPanel.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
-
+*/
         JPanel guestPanel = createGuestPanel();
         JPanel roomPanel = createRoomPanel();
         JPanel tablePanel = createTablePanel();
         JPanel buttonPanel = createButtonPanel();
 
-        mainPanel.add(guestPanel, BorderLayout.NORTH);
+        /*mainPanel.add(guestPanel, BorderLayout.NORTH);
         mainPanel.add(roomPanel, BorderLayout.CENTER);
         mainPanel.add(tablePanel, BorderLayout.SOUTH);
 
@@ -58,7 +58,17 @@ public class NewReservationScreen extends JDialog {
         container.add(mainPanel, BorderLayout.CENTER);
         container.add(buttonPanel, BorderLayout.SOUTH);
 
-        add(container);
+        add(container);*/
+       JPanel container = new JPanel();
+      container.setLayout(new BoxLayout(container, BoxLayout.Y_AXIS));
+
+      container.add(guestPanel);
+      container.add(roomPanel);
+      container.add(tablePanel);
+      container.add(buttonPanel);
+
+      add(container);
+
     }
 
     private JPanel createGuestPanel() {
@@ -142,37 +152,52 @@ public class NewReservationScreen extends JDialog {
 
     // ================= LOGIC ================= //
 
-    private void searchAvailableRooms() {
-        tableModel.setRowCount(0);
+   private void searchAvailableRooms() {
+    tableModel.setRowCount(0);
 
-        String checkIn = txtCheckInDate.getText().trim();
-        String checkOut = txtCheckOutDate.getText().trim();
-        int roomType = cmbRoomType.getSelectedIndex() + 1;
+    String checkIn = txtCheckInDate.getText().trim();
+    String checkOut = txtCheckOutDate.getText().trim();
 
-        if (!reservationDAO.checkAvailability(roomType, checkIn, checkOut)) {
-            JOptionPane.showMessageDialog(this,
-                    "No rooms available! Guest will be added to waitlist",
-                    "Waitlist", JOptionPane.WARNING_MESSAGE);
-            return;
-        }
+    // ✨ تحقق إدخال التواريخ ✨
+    if (checkIn.isEmpty() || checkOut.isEmpty()) {
+        JOptionPane.showMessageDialog(this,
+                "Please enter both Check-In and Check-Out dates!",
+                "Required Fields",
+                JOptionPane.ERROR_MESSAGE);
+        return;
+    }
 
-        for (Room room : roomDAO.getAllRooms()) {
-            if (room.getRoomTypeId() == roomType && room.getStatus().equalsIgnoreCase("Available")) {
-                tableModel.addRow(new Object[]{
-                        room.getId(),
-                        room.getRoomNumber(),
-                        roomType,
-                        "100.00"
-                });
-            }
-        }
+    int roomType = cmbRoomType.getSelectedIndex() + 1;
 
-        if (tableModel.getRowCount() == 0) {
-            JOptionPane.showMessageDialog(this,
-                    "No available rooms. Will be added to waitlist.",
-                    "Waitlist", JOptionPane.WARNING_MESSAGE);
+    if (!reservationDAO.checkAvailability(roomType, checkIn, checkOut)) {
+        JOptionPane.showMessageDialog(this,
+                "No rooms available! Guest will be added to waitlist",
+                "Waitlist",
+                JOptionPane.WARNING_MESSAGE);
+        return;
+    }
+
+    for (Room room : roomDAO.getAllRooms()) {
+        if (room.getRoomTypeId() == roomType &&
+                room.getStatus().equalsIgnoreCase("Available")) {
+
+            tableModel.addRow(new Object[]{
+                    room.getId(),
+                    room.getRoomNumber(),
+                    roomType,
+                    "100.00"
+            });
         }
     }
+
+    if (tableModel.getRowCount() == 0) {
+        JOptionPane.showMessageDialog(this,
+                "No available rooms. Will be added to waitlist.",
+                "Waitlist",
+                JOptionPane.WARNING_MESSAGE);
+    }
+}
+
 
     private void confirmReservation() {
         String fullName = txtGuestName.getText().trim();
