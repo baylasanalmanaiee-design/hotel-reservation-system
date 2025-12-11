@@ -25,5 +25,6 @@ public class HotelReservationSystem {
     //SeedData.insertSampleUsers();
     //SeedData.insertSampleRoomTypes();
     //SeedData.insertSampleRooms();
+    
     }
 }
