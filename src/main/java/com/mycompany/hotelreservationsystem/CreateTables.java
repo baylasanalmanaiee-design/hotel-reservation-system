@@ -23,6 +23,10 @@ public class CreateTables {
         createPaymentsTable();
         ///////waitlist
         createWaitlistTable();
+        
+        
+        /////
+        migrateReservationsAddTotalPrice();
     }
 
     private static void createUsersTable() {
@@ -108,7 +112,30 @@ public class CreateTables {
 
 /////////////////
     
+  //////
+  // 🔧 إصلاح الجداول القديمة: إضافة عمود total_price لو كان ناقص
+private static void migrateReservationsAddTotalPrice() {
+    String sql = "ALTER TABLE reservations ADD COLUMN total_price REAL DEFAULT 0";
 
+    try (Connection conn = DatabaseConnection.getConnection();
+         Statement stmt = conn.createStatement()) {
+
+        stmt.execute(sql);
+        System.out.println("Migration: column total_price added to reservations.");
+
+    } catch (Exception e) {
+        // لو العمود موجود أصلاً، SQLite يعطي error "duplicate column name"
+        String msg = e.getMessage();
+        if (msg != null && msg.toLowerCase().contains("duplicate column name")) {
+            System.out.println("Migration: total_price already exists, skipping.");
+        } else {
+            System.out.println("Migration error (reservations / total_price): " + msg);
+            e.printStackTrace();
+        }
+    }
+}
+
+  ///
     private static void createDiscountsTable() {
         String sql = """
             CREATE TABLE IF NOT EXISTS discounts (
