@@ -28,5 +28,12 @@ public class RoomType {
     public void setName(String name) { this.name = name; }
 
     public double getBasePrice() { return basePrice; }
-    public void setBasePrice(double basePrice) { this.basePrice = basePrice; }  
+    public void setBasePrice(double basePrice) { this.basePrice = basePrice; }
+    
+    ////////
+      @Override
+    public String toString() {
+        return name; // عشان يظهر في الـ JComboBox باسم النوع
+    }
+    ///
 }

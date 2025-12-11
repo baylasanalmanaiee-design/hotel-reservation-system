@@ -12,15 +12,21 @@ public class Guest {
     private int id;
     private String fullName;
     private String phone;
-    private String idNumber;
+    private String idNumber;  // national_id
+    private String email;     // NEW
 
     public Guest() {}
 
-    public Guest(int id, String fullName, String phone, String idNumber) {
+    public Guest(int id, String fullName, String phone, String idNumber, String email) {
         this.id = id;
         this.fullName = fullName;
         this.phone = phone;
         this.idNumber = idNumber;
+        this.email = email;
+    }
+
+    public Guest(int id, String fullName, String phone, String idNumber) {
+        this(id, fullName, phone, idNumber, null);
     }
 
     public int getId() { return id; }
@@ -34,4 +40,8 @@ public class Guest {
 
     public String getIdNumber() { return idNumber; }
     public void setIdNumber(String idNumber) { this.idNumber = idNumber; }
+
+    public String getEmail() { return email; }          // NEW
+    public void setEmail(String email) { this.email = email; }  // NEW
 }
+

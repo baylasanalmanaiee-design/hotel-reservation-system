@@ -8,7 +8,6 @@ package com.mycompany.hotelreservationsystem.dao;
  *
  * @author kady
  */
-
 import com.mycompany.hotelreservationsystem.DatabaseConnection;
 import com.mycompany.hotelreservationsystem.model.Room;
 import java.sql.*;

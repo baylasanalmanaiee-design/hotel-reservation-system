@@ -16,16 +16,17 @@ public class GuestDAO {
 
     public int addGuest(Guest guest) {
         String sql = """
-            INSERT INTO guests(full_name, phone, national_id)
-            VALUES(?, ?, ?)
+            INSERT INTO guests(full_name, national_id, phone, email)
+            VALUES(?, ?, ?, ?)
         """;
 
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
 
             stmt.setString(1, guest.getFullName());
-            stmt.setString(2, guest.getPhone());
-            stmt.setString(3, guest.getIdNumber());
+            stmt.setString(2, guest.getIdNumber());
+            stmt.setString(3, guest.getPhone());
+            stmt.setString(4, guest.getEmail());
 
             stmt.executeUpdate();
 
@@ -53,7 +54,8 @@ public class GuestDAO {
                         rs.getInt("guest_id"),
                         rs.getString("full_name"),
                         rs.getString("phone"),
-                        rs.getString("national_id")
+                        rs.getString("national_id"),
+                        rs.getString("email")  // NEW
                 );
             }
 
@@ -64,4 +66,5 @@ public class GuestDAO {
         return null;
     }
 }
+
 
