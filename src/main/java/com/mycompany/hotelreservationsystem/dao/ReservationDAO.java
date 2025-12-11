@@ -8,24 +8,26 @@ package com.mycompany.hotelreservationsystem.dao;
  *
  * @author kady
  */
-import com.mycompany.hotelreservationsystem.dao.RoomDAO;
-import com.mycompany.hotelreservationsystem.dao.ReservationDAO;
+
 import com.mycompany.hotelreservationsystem.DatabaseConnection;
 import com.mycompany.hotelreservationsystem.model.Reservation;
 import java.sql.*;
 
 public class ReservationDAO {
 
+    // ✅ التحقق من توفر نوع غرفة في فترة معينة
     public boolean checkAvailability(int roomTypeId, String in, String out) {
+
         String sql = """
             SELECT * FROM reservations r
             JOIN rooms rm ON r.room_id = rm.room_id
             WHERE rm.type_id = ?
-            AND (
-                (check_in_date <= ? AND check_out_date >= ?)
-             OR (check_in_date <= ? AND check_out_date >= ?)
-            )
-            """;
+              AND r.status <> 'Cancelled'
+              AND (
+                    (r.check_in_date <= ? AND r.check_out_date >= ?)
+                 OR (r.check_in_date <= ? AND r.check_out_date >= ?)
+              )
+        """;
 
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -46,12 +48,13 @@ public class ReservationDAO {
         return false;
     }
 
-    // الآن نخزن total_price أيضاً
+    // ✅ إنشاء حجز جديد مع status = CONFIRMED و total_price
     public boolean createReservation(Reservation r) {
 
         String sql = """
-            INSERT INTO reservations(guest_id, room_id, check_in_date, check_out_date, status, total_price)
-            VALUES(?, ?, ?, ?, 'active', ?)
+            INSERT INTO reservations
+                (guest_id, room_id, check_in_date, check_out_date, status, total_price)
+            VALUES(?, ?, ?, ?, 'CONFIRMED', ?)
         """;
 
         try (Connection conn = DatabaseConnection.getConnection();
@@ -73,6 +76,7 @@ public class ReservationDAO {
         return false;
     }
 
+    // ✅ جلب حجز بالـ ID
     public Reservation getReservationById(int id) {
 
         String sql = "SELECT * FROM reservations WHERE reservation_id = ?";
@@ -90,7 +94,7 @@ public class ReservationDAO {
                         rs.getInt("room_id"),
                         rs.getString("check_in_date"),
                         rs.getString("check_out_date"),
-                        rs.getDouble("total_price") // بدال 0.0
+                        rs.getDouble("total_price")
                 );
             }
 
@@ -100,34 +104,54 @@ public class ReservationDAO {
 
         return null;
     }
-    
+
+    // ✅ تعديل كامل على الحجز (غرفة + تواريخ + سعر)
     public boolean updateReservation(int id, int roomId, String in, String out, double totalPrice) {
 
-    String sql = """
-        UPDATE reservations
-        SET room_id = ?, check_in_date = ?, check_out_date = ?, total_price = ?
-        WHERE reservation_id = ?
+        String sql = """
+            UPDATE reservations
+            SET room_id = ?,
+                check_in_date = ?,
+                check_out_date = ?,
+                total_price = ?
+            WHERE reservation_id = ?
         """;
 
-    try (Connection conn = DatabaseConnection.getConnection();
-         PreparedStatement stmt = conn.prepareStatement(sql)) {
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
 
-        stmt.setInt(1, roomId);
-        stmt.setString(2, in);
-        stmt.setString(3, out);
-        stmt.setDouble(4, totalPrice);
-        stmt.setInt(5, id);
+            stmt.setInt(1, roomId);
+            stmt.setString(2, in);
+            stmt.setString(3, out);
+            stmt.setDouble(4, totalPrice);
+            stmt.setInt(5, id);
 
-        return stmt.executeUpdate() > 0;
+            return stmt.executeUpdate() > 0;
 
-    } catch (Exception e) {
-        e.printStackTrace();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return false;
     }
 
-    return false;
+    // ✅ تحديث حالة الحجز (CONFIRMED / CHECKED_IN / CHECKED_OUT / CANCELLED)
+    public boolean updateStatus(int reservationId, String status) {
+        String sql = "UPDATE reservations SET status=? WHERE reservation_id=?";
+
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setString(1, status);
+            stmt.setInt(2, reservationId);
+            return stmt.executeUpdate() > 0;
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return false;
+    }
 }
 
-}
 
 
     

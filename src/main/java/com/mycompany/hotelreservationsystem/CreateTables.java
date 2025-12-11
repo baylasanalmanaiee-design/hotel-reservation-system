@@ -90,7 +90,7 @@ public class CreateTables {
         execute(sql, "reservations");
     }*/
     ////////////
-    private static void createReservationsTable() {
+  private static void createReservationsTable() {
     String sql = """
         CREATE TABLE IF NOT EXISTS reservations (
             reservation_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -100,11 +100,12 @@ public class CreateTables {
             check_out_date TEXT NOT NULL,
             status         TEXT NOT NULL,
             created_by     INTEGER,
-            total_price    REAL
+            total_price    REAL DEFAULT 0
         );
         """;
     execute(sql, "reservations");
 }
+
 /////////////////
     
 

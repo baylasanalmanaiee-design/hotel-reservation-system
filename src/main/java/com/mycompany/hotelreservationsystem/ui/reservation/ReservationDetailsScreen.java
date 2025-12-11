@@ -10,6 +10,7 @@ package com.mycompany.hotelreservationsystem.ui.reservation;
  */
 
 import com.mycompany.hotelreservationsystem.DatabaseConnection;
+
 import javax.swing.*;
 import java.awt.*;
 import java.sql.*;
@@ -102,3 +103,4 @@ public class ReservationDetailsScreen extends JDialog {
         }
     }
 }
+

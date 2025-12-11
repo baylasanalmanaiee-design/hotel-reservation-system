@@ -150,4 +150,27 @@ public class RoomDAO {
         }
         return false;
     }
+    ///////////
+    
+    // ✅ جديد: تحديث الحالة بالـ room_id
+    public boolean updateRoomStatusById(int roomId, String status) {
+        String sql = "UPDATE rooms SET status = ? WHERE room_id = ?";
+
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setString(1, status);
+            stmt.setInt(2, roomId);
+
+            int rowsAffected = stmt.executeUpdate();
+            return rowsAffected > 0;
+
+        } catch (Exception e) {
+            System.out.println("Error in updateRoomStatusById: " + e.getMessage());
+            e.printStackTrace();
+        }
+        return false;
+    }
 }
+
+    ///

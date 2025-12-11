@@ -10,30 +10,32 @@ package com.mycompany.hotelreservationsystem.ui.reservation;
  */
 
 import com.mycompany.hotelreservationsystem.DatabaseConnection;
+import com.mycompany.hotelreservationsystem.dao.ReservationDAO;
+import com.mycompany.hotelreservationsystem.dao.RoomDAO;
 import com.mycompany.hotelreservationsystem.dao.RoomTypeDAO;
+import com.mycompany.hotelreservationsystem.model.Reservation;
 import com.mycompany.hotelreservationsystem.model.Room;
 import com.mycompany.hotelreservationsystem.model.RoomType;
 import com.mycompany.hotelreservationsystem.ui.billing.CheckInScreen;
 import com.mycompany.hotelreservationsystem.ui.billing.CheckOutScreen;
+
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.sql.*;
-import com.mycompany.hotelreservationsystem.dao.ReservationDAO;
-import com.mycompany.hotelreservationsystem.dao.RoomDAO;
-import com.mycompany.hotelreservationsystem.model.Reservation;
+import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 
 public class ManageReservationsScreen extends JDialog {
-    
-    
-    private ReservationDAO reservationDAO = new ReservationDAO();
-    private RoomDAO roomDAO = new RoomDAO();
-    
-    
     private JTextField txtSearch;
     private JButton btnSearch, btnView, btnEdit, btnCancel, btnCheckIn, btnCheckOut;
     private JTable reservationsTable;
     private DefaultTableModel tableModel;
+
+    // ✅ DAOs
+    private final ReservationDAO reservationDAO = new ReservationDAO();
+    private final RoomDAO roomDAO = new RoomDAO();
+    private final RoomTypeDAO roomTypeDAO = new RoomTypeDAO();
 
     public ManageReservationsScreen(JFrame parent) {
         super(parent, "Manage Reservations", true);
@@ -78,8 +80,11 @@ public class ManageReservationsScreen extends JDialog {
 
     private JPanel createTablePanel() {
         JPanel panel = new JPanel(new BorderLayout());
-        
-        String[] columns = {"Reservation ID", "Guest Name", "Room No", "Check-in", "Check-out", "Status", "Total Price"};
+
+        String[] columns = {
+                "Reservation ID", "Guest Name", "Room No",
+                "Check-in", "Check-out", "Status", "Total Price"
+        };
         tableModel = new DefaultTableModel(columns, 0) {
             @Override
             public Class<?> getColumnClass(int column) {
@@ -142,35 +147,33 @@ public class ManageReservationsScreen extends JDialog {
     private void loadReservationsFromDB() {
         tableModel.setRowCount(0);
 
-       String sql = """
-    SELECT r.reservation_id,
-           g.full_name,
-           rm.room_number,
-           r.check_in_date,
-           r.check_out_date,
-           r.status,
-           r.total_price
-    FROM reservations r
-    JOIN guests g ON r.guest_id = g.guest_id
-    JOIN rooms rm ON r.room_id = rm.room_id
-""";
-
+        String sql = """
+            SELECT r.reservation_id,
+                   g.full_name,
+                   rm.room_number,
+                   r.check_in_date,
+                   r.check_out_date,
+                   r.status,
+                   r.total_price
+            FROM reservations r
+            JOIN guests g ON r.guest_id = g.guest_id
+            JOIN rooms rm ON r.room_id = rm.room_id
+        """;
 
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql);
              ResultSet rs = stmt.executeQuery()) {
 
             while (rs.next()) {
-              tableModel.addRow(new Object[]{
-        String.valueOf(rs.getInt("reservation_id")),
-        rs.getString("full_name"),
-        rs.getString("room_number"),
-        rs.getString("check_in_date"),
-        rs.getString("check_out_date"),
-        rs.getString("status"),
-        rs.getDouble("total_price")
-});
-
+                tableModel.addRow(new Object[]{
+                        String.valueOf(rs.getInt("reservation_id")),
+                        rs.getString("full_name"),
+                        rs.getString("room_number"),
+                        rs.getString("check_in_date"),
+                        rs.getString("check_out_date"),
+                        rs.getString("status"),
+                        String.valueOf(rs.getDouble("total_price"))
+                });
             }
 
         } catch (Exception e) {
@@ -217,15 +220,14 @@ public class ManageReservationsScreen extends JDialog {
             ResultSet rs = stmt.executeQuery();
             while (rs.next()) {
                 tableModel.addRow(new Object[]{
-        String.valueOf(rs.getInt("reservation_id")),
-        rs.getString("full_name"),
-        rs.getString("room_number"),
-        rs.getString("check_in_date"),
-        rs.getString("check_out_date"),
-        rs.getString("status"),
-        rs.getDouble("total_price")
-});
-
+                        String.valueOf(rs.getInt("reservation_id")),
+                        rs.getString("full_name"),
+                        rs.getString("room_number"),
+                        rs.getString("check_in_date"),
+                        rs.getString("check_out_date"),
+                        rs.getString("status"),
+                        String.valueOf(rs.getDouble("total_price"))
+                });
             }
 
         } catch (Exception e) {
@@ -247,111 +249,116 @@ public class ManageReservationsScreen extends JDialog {
         details.setVisible(true);
     }
 
-private void editReservation() {
-    int row = reservationsTable.getSelectedRow();
-    if (row == -1) {
-        JOptionPane.showMessageDialog(this, "Please select a reservation first.");
-        return;
-    }
+    // ✅ تعديل الحجز: تغيير تاريخ + غرفة + إعادة حساب السعر
+    private void editReservation() {
+        int row = reservationsTable.getSelectedRow();
+        if (row == -1) {
+            JOptionPane.showMessageDialog(this, "Please select a reservation first.");
+            return;
+        }
 
-    int reservationId = Integer.parseInt(tableModel.getValueAt(row, 0).toString());
+        int reservationId = Integer.parseInt(tableModel.getValueAt(row, 0).toString());
 
-    // 1) جلب بيانات الحجز القديمة
-    Reservation oldRes = reservationDAO.getReservationById(reservationId);
-    if (oldRes == null) {
-        JOptionPane.showMessageDialog(this, "Error loading reservation data.");
-        return;
-    }
+        Reservation oldRes = reservationDAO.getReservationById(reservationId);
+        if (oldRes == null) {
+            JOptionPane.showMessageDialog(this, "Error loading reservation data.");
+            return;
+        }
 
-    int oldRoomId = oldRes.getRoomId();
+        int oldRoomId = oldRes.getRoomId();
 
-    // 2) إدخال التواريخ الجديدة
-    String newCheckIn = JOptionPane.showInputDialog(this,
-            "Enter new Check-In date (YYYY-MM-DD):",
-            oldRes.getCheckInDate());
+        String newCheckIn = JOptionPane.showInputDialog(
+                this,
+                "Enter new Check-In date (YYYY-MM-DD):",
+                oldRes.getCheckInDate()
+        );
+        if (newCheckIn == null || newCheckIn.trim().isEmpty()) return;
 
-    if (newCheckIn == null || newCheckIn.trim().isEmpty()) return;
+        String newCheckOut = JOptionPane.showInputDialog(
+                this,
+                "Enter new Check-Out date (YYYY-MM-DD):",
+                oldRes.getCheckOutDate()
+        );
+        if (newCheckOut == null || newCheckOut.trim().isEmpty()) return;
 
-    String newCheckOut = JOptionPane.showInputDialog(this,
-            "Enter new Check-Out date (YYYY-MM-DD):",
-            oldRes.getCheckOutDate());
+        String newRoomIdStr = JOptionPane.showInputDialog(
+                this,
+                "Enter NEW Room ID to assign (old was: " + oldRoomId + "):",
+                String.valueOf(oldRoomId)
+        );
+        if (newRoomIdStr == null || newRoomIdStr.trim().isEmpty()) return;
 
-    if (newCheckOut == null || newCheckOut.trim().isEmpty()) return;
+        int newRoomId;
+        try {
+            newRoomId = Integer.parseInt(newRoomIdStr.trim());
+        } catch (NumberFormatException ex) {
+            JOptionPane.showMessageDialog(this, "Invalid Room ID!");
+            return;
+        }
 
-    // 3) اختيار غرفة جديدة
-    String newRoomIdStr = JOptionPane.showInputDialog(this,
-            "Enter NEW Room ID to assign (old was: " + oldRoomId + "):",
-            oldRoomId);
+        Room newRoom = roomDAO.getRoomById(newRoomId);
+        if (newRoom == null) {
+            JOptionPane.showMessageDialog(this, "Room not found!");
+            return;
+        }
 
-    if (newRoomIdStr == null || newRoomIdStr.trim().isEmpty()) return;
+        int roomTypeId = newRoom.getRoomTypeId();
+        boolean available = reservationDAO.checkAvailability(roomTypeId, newCheckIn, newCheckOut);
 
-    int newRoomId = Integer.parseInt(newRoomIdStr.trim());
+        if (!available && newRoomId != oldRoomId) {
+            JOptionPane.showMessageDialog(this,
+                    "This room is already booked in these dates!",
+                    "Unavailable Room",
+                    JOptionPane.ERROR_MESSAGE);
+            return;
+        }
 
-    // 4) تحقق من توفر الغرفة الجديدة
-    Room newRoom = roomDAO.getRoomById(newRoomId);
-    if (newRoom == null) {
-        JOptionPane.showMessageDialog(this, "Invalid Room ID!");
-        return;
-    }
+        LocalDate inDate;
+        LocalDate outDate;
+        try {
+            inDate = LocalDate.parse(newCheckIn);
+            outDate = LocalDate.parse(newCheckOut);
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(this, "Invalid date format! Use YYYY-MM-DD.");
+            return;
+        }
 
-    int roomTypeId = newRoom.getRoomTypeId();
+        long nights = ChronoUnit.DAYS.between(inDate, outDate);
+        if (nights <= 0) {
+            JOptionPane.showMessageDialog(this, "Check-Out must be after Check-In!");
+            return;
+        }
 
-    boolean available = reservationDAO.checkAvailability(roomTypeId, newCheckIn, newCheckOut);
-    if (!available && newRoomId != oldRoomId) {
+        RoomType rt = roomTypeDAO.getRoomTypeById(roomTypeId);
+        double newTotalPrice = nights * rt.getBasePrice();
+
+        boolean updated = reservationDAO.updateReservation(
+                reservationId,
+                newRoomId,
+                newCheckIn,
+                newCheckOut,
+                newTotalPrice
+        );
+
+        if (!updated) {
+            JOptionPane.showMessageDialog(this, "Error updating reservation!");
+            return;
+        }
+
+        // تحديث حالة الغرف
+        if (newRoomId != oldRoomId) {
+            Room oldRoom = roomDAO.getRoomById(oldRoomId);
+            if (oldRoom != null) {
+                roomDAO.updateRoomStatus(oldRoom.getRoomNumber(), "Available");
+            }
+        }
+        roomDAO.updateRoomStatus(newRoom.getRoomNumber(), "Booked");
+
         JOptionPane.showMessageDialog(this,
-                "This room is already booked in these dates!",
-                "Unavailable Room",
-                JOptionPane.ERROR_MESSAGE);
-        return;
+                "Reservation updated successfully!\nNew Total Price: " + newTotalPrice + " SR");
+
+        loadReservationsFromDB();
     }
-
-    // 5) حساب السعر الجديد (عدد الليالي × السعر الأساسي)
-    RoomTypeDAO rtDao = new RoomTypeDAO();
-    RoomType rt = rtDao.getRoomTypeById(roomTypeId);
-
-    long nights = java.time.temporal.ChronoUnit.DAYS.between(
-            java.time.LocalDate.parse(newCheckIn),
-            java.time.LocalDate.parse(newCheckOut)
-    );
-
-    if (nights <= 0) {
-        JOptionPane.showMessageDialog(this, "Check-Out must be after Check-In!");
-        return;
-    }
-
-    double newTotalPrice = nights * rt.getBasePrice();
-
-    // 6) تحديث الحجز في DB
-    boolean updated = reservationDAO.updateReservation(
-            reservationId,
-            newRoomId,
-            newCheckIn,
-            newCheckOut,
-            newTotalPrice
-    );
-
-    if (!updated) {
-        JOptionPane.showMessageDialog(this, "Error updating reservation!");
-        return;
-    }
-
-    // 7) تحديث حالة الغرف
-    // الغرفة القديمة تصبح Available (فقط إذا تغيرت)
-    if (newRoomId != oldRoomId) {
-        Room oldRoom = roomDAO.getRoomById(oldRoomId);
-        roomDAO.updateRoomStatus(oldRoom.getRoomNumber(), "Available");
-    }
-
-    // الغرفة الجديدة تصبح Booked
-    roomDAO.updateRoomStatus(newRoom.getRoomNumber(), "Booked");
-
-    JOptionPane.showMessageDialog(this,
-            "Reservation updated successfully!\nNew Total Price: " + newTotalPrice + " SR");
-
-    loadReservationsFromDB();
-}
-
-
 
     private void cancelReservation() {
         int row = reservationsTable.getSelectedRow();
@@ -387,26 +394,25 @@ private void editReservation() {
         }
     }
 
-   private void goToCheckIn() {
-    int selectedRow = reservationsTable.getSelectedRow();
-    if (selectedRow == -1) {
-        JOptionPane.showMessageDialog(this, "Select a reservation!");
-        return;
+    private void goToCheckIn() {
+        int selectedRow = reservationsTable.getSelectedRow();
+        if (selectedRow == -1) {
+            JOptionPane.showMessageDialog(this, "Select a reservation!");
+            return;
+        }
+
+        String status = tableModel.getValueAt(selectedRow, 5).toString();
+        if (!status.equalsIgnoreCase("CONFIRMED")) {
+            JOptionPane.showMessageDialog(this,
+                    "Only CONFIRMED reservations can Check-In!");
+            return;
+        }
+
+        // هنا شغل صحبتك (CheckInScreen) — ما نعدله
+        new CheckInScreen((JFrame) this.getParent()).setVisible(true);
+
+        loadReservationsFromDB();
     }
-
-    String status = tableModel.getValueAt(selectedRow, 5).toString();
-    if (!status.equalsIgnoreCase("Booked")) {
-        JOptionPane.showMessageDialog(this, 
-            "Only Booked reservations can Check-In!");
-        return;
-    }
-
-    int resId = Integer.parseInt(tableModel.getValueAt(selectedRow, 0).toString());
-    new CheckInScreen((JFrame) this.getParent()).setVisible(true);
-
-    loadReservationsFromDB();
-}
-
 
     private void goToCheckOut() {
         int row = reservationsTable.getSelectedRow();
@@ -416,22 +422,22 @@ private void editReservation() {
         }
 
         String status = tableModel.getValueAt(row, 5).toString();
-        if (!status.equalsIgnoreCase("Checked-in")) {
+        if (!status.equalsIgnoreCase("Checked-in") &&
+            !status.equalsIgnoreCase("CHECKED_IN")) {
             JOptionPane.showMessageDialog(this,
                     "Only 'Checked-in' reservations can be checked out.\nCurrent status: " + status);
             return;
         }
 
-        JFrame parentFrame = (JFrame) SwingUtilities.getWindowAncestor(this);
-        new CheckOutScreen(parentFrame).setVisible(true);
+        new CheckOutScreen((JFrame) SwingUtilities.getWindowAncestor(this)).setVisible(true);
 
         loadReservationsFromDB();
     }
 
-    // test main
     public static void main(String[] args) {
         JFrame f = new JFrame();
         ManageReservationsScreen s = new ManageReservationsScreen(f);
         s.setVisible(true);
     }
 }
+
