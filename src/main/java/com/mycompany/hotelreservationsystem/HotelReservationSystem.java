@@ -12,7 +12,7 @@ import java.sql.Connection;
 public class HotelReservationSystem {
 
     public static void main(String[] args) {
-        //CreateTables.createAllTables();  
+        CreateTables.createAllTables();  
         //System.out.println("Database created successfully!");
 
         new LoginForm();

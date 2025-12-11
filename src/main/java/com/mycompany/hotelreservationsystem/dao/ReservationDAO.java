@@ -16,37 +16,36 @@ import java.sql.*;
 public class ReservationDAO {
 
     // ✅ التحقق من توفر نوع غرفة في فترة معينة
-    public boolean checkAvailability(int roomTypeId, String in, String out) {
+   public boolean checkAvailability(int roomTypeId, String in, String out) {
 
-        String sql = """
-            SELECT * FROM reservations r
-            JOIN rooms rm ON r.room_id = rm.room_id
-            WHERE rm.type_id = ?
-              AND r.status <> 'Cancelled'
-              AND (
-                    (r.check_in_date <= ? AND r.check_out_date >= ?)
-                 OR (r.check_in_date <= ? AND r.check_out_date >= ?)
-              )
-        """;
+    String sql = """
+        SELECT * FROM reservations r
+        JOIN rooms rm ON r.room_id = rm.room_id
+        WHERE rm.type_id = ?
+          AND r.status <> 'Cancelled'
+          AND (
+                date(?) < date(r.check_out_date)
+            AND date(?) > date(r.check_in_date)
+          )
+    """;
 
-        try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
+    try (Connection conn = DatabaseConnection.getConnection();
+         PreparedStatement stmt = conn.prepareStatement(sql)) {
 
-            stmt.setInt(1, roomTypeId);
-            stmt.setString(2, out);
-            stmt.setString(3, in);
-            stmt.setString(4, out);
-            stmt.setString(5, in);
+        stmt.setInt(1, roomTypeId);
+        stmt.setString(2, out);     // new_out < old_out?
+        stmt.setString(3, in);      // new_in > old_in?
 
-            ResultSet rs = stmt.executeQuery();
-            return !rs.next(); // لو ما فيه نتيجة → ما فيه تعارض
+        ResultSet rs = stmt.executeQuery();
+        return !rs.next();
 
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-
-        return false;
+    } catch (Exception e) {
+        e.printStackTrace();
     }
+
+    return false;
+}
+
 
     // ✅ إنشاء حجز جديد مع status = CONFIRMED و total_price
     public boolean createReservation(Reservation r) {

@@ -10,6 +10,7 @@ import com.mycompany.hotelreservationsystem.ui.reservation.NewReservationScreen;
 import com.mycompany.hotelreservationsystem.ui.reservation.ManageReservationsScreen;
 import com.mycompany.hotelreservationsystem.ui.billing.CheckInScreen;
 import com.mycompany.hotelreservationsystem.ui.billing.CheckOutScreen;
+import com.mycompany.hotelreservationsystem.ui.reservation.WaitlistScreen;
 import com.mycompany.hotelreservationsystem.ui.rooms.RoomsStatusScreen;
 
 /**
@@ -39,6 +40,13 @@ public class ReceptionistDashboard extends JFrame{
 
         JButton roomStatus = new JButton("Room Status");
         roomStatus.setBounds(100, 190, 180, 30);
+        
+        /////////
+       JButton btnWaitlist = new JButton("Waitlist");
+       btnWaitlist.addActionListener(e -> new WaitlistScreen(this).setVisible(true));
+       //panel.add(btnWaitlist);سوي له بانل 
+
+        ///
 
         JButton logout = new JButton("Logout");
         logout.setBounds(100, 230, 180, 30);
