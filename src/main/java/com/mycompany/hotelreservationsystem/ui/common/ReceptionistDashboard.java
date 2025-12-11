@@ -41,13 +41,6 @@ public class ReceptionistDashboard extends JFrame{
         JButton roomStatus = new JButton("Room Status");
         roomStatus.setBounds(100, 190, 180, 30);
         
-        /////////
-       JButton btnWaitlist = new JButton("Waitlist");
-       btnWaitlist.addActionListener(e -> new WaitlistScreen(this).setVisible(true));
-       //panel.add(btnWaitlist);سوي له بانل 
-
-        ///
-
         JButton logout = new JButton("Logout");
         logout.setBounds(100, 230, 180, 30);
 

@@ -44,11 +44,11 @@ public class NewReservationScreen extends JDialog {
     private JTable roomsTable;
     private DefaultTableModel tableModel;
 
-    private java.util.List<RoomType> roomTypes;  // قائمة أنواع الغرف من DB
+    private java.util.List<RoomType> roomTypes;
 
     public NewReservationScreen(JFrame parent) {
         super(parent, "New Reservation", true);
-        setSize(900, 600);
+        setSize(900, 650);
         setLocationRelativeTo(parent);
 
         JPanel guestPanel = createGuestPanel();
@@ -85,7 +85,7 @@ public class NewReservationScreen extends JDialog {
         txtId = new JTextField();
         panel.add(txtId);
 
-        panel.add(new JLabel("Email:"));       // ✅ جديد
+        panel.add(new JLabel("Email:"));
         txtEmail = new JTextField();
         panel.add(txtEmail);
 
@@ -108,12 +108,12 @@ public class NewReservationScreen extends JDialog {
         txtCheckOutDate = new JTextField();
         panel.add(txtCheckOutDate);
 
+        // زر البحث فقط
         btnSearchRooms = new JButton("Search Available Rooms");
         btnSearchRooms.setBackground(new Color(70, 130, 180));
         btnSearchRooms.setForeground(Color.WHITE);
         btnSearchRooms.addActionListener(e -> searchAvailableRooms());
 
-        // نخلي الزر في سطر تحت لحاله
         JPanel wrapper = new JPanel(new FlowLayout(FlowLayout.LEFT));
         wrapper.add(btnSearchRooms);
 
@@ -159,16 +159,12 @@ public class NewReservationScreen extends JDialog {
         return panel;
     }
 
-    // ✅ تحميل room_types من DB بدلاً من بيانات ثابتة
     private void loadRoomTypesIntoCombo() {
         cmbRoomType.removeAllItems();
         roomTypes = roomTypeDAO.getAllRoomTypes();
 
         if (roomTypes == null || roomTypes.isEmpty()) {
-            JOptionPane.showMessageDialog(this,
-                    "No room types found in database!",
-                    "Error",
-                    JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(this, "No room types found in database!");
             return;
         }
 
@@ -177,8 +173,6 @@ public class NewReservationScreen extends JDialog {
         }
     }
 
-    // ================= LOGIC ================= //
-
     private void searchAvailableRooms() {
         tableModel.setRowCount(0);
 
@@ -186,18 +180,12 @@ public class NewReservationScreen extends JDialog {
         String checkOut = txtCheckOutDate.getText().trim();
 
         if (checkIn.isEmpty() || checkOut.isEmpty()) {
-            JOptionPane.showMessageDialog(this,
-                    "Please enter both Check-In and Check-Out dates!",
-                    "Required Fields",
-                    JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Please enter both Check-In and Check-Out dates!");
             return;
         }
 
         if (cmbRoomType.getSelectedIndex() == -1) {
-            JOptionPane.showMessageDialog(this,
-                    "Please select a room type!",
-                    "Required Field",
-                    JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Please select a room type!");
             return;
         }
 
@@ -207,17 +195,16 @@ public class NewReservationScreen extends JDialog {
         boolean available = reservationDAO.checkAvailability(roomTypeId, checkIn, checkOut);
         if (!available) {
             JOptionPane.showMessageDialog(this,
-                    "No rooms available for this type and dates! Guest will be added to waitlist.",
+                    "No rooms available. Guest will be added to waitlist.",
                     "Waitlist",
                     JOptionPane.WARNING_MESSAGE);
             return;
         }
 
-        // عرض جميع الغرف المتاحة من هذا النوع
         List<Room> allRooms = roomDAO.getAllRooms();
         for (Room room : allRooms) {
             if (room.getRoomTypeId() == roomTypeId &&
-                    room.getStatus().equalsIgnoreCase("Available")) {
+                room.getStatus().equalsIgnoreCase("Available")) {
 
                 tableModel.addRow(new Object[]{
                         room.getId(),
@@ -226,13 +213,6 @@ public class NewReservationScreen extends JDialog {
                         selectedType.getBasePrice()
                 });
             }
-        }
-
-        if (tableModel.getRowCount() == 0) {
-            JOptionPane.showMessageDialog(this,
-                    "No available rooms. Guest will be added to waitlist.",
-                    "Waitlist",
-                    JOptionPane.WARNING_MESSAGE);
         }
     }
 
@@ -250,7 +230,7 @@ public class NewReservationScreen extends JDialog {
         }
 
         if (checkIn.isEmpty() || checkOut.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Please enter check-in and check-out dates!");
+            JOptionPane.showMessageDialog(this, "Please enter both dates!");
             return;
         }
 
@@ -259,14 +239,14 @@ public class NewReservationScreen extends JDialog {
             return;
         }
 
-        // حساب عدد الليالي
         LocalDate inDate;
         LocalDate outDate;
+
         try {
             inDate = LocalDate.parse(checkIn);
             outDate = LocalDate.parse(checkOut);
         } catch (Exception ex) {
-            JOptionPane.showMessageDialog(this, "Invalid date format! Use YYYY-MM-DD.");
+            JOptionPane.showMessageDialog(this, "Invalid date format!");
             return;
         }
 
@@ -284,11 +264,11 @@ public class NewReservationScreen extends JDialog {
         int guestId = guestDAO.addGuest(guest);
 
         if (guestId == -1) {
-            JOptionPane.showMessageDialog(this, "Error saving guest data!");
+            JOptionPane.showMessageDialog(this, "Error saving guest!");
             return;
         }
 
-        // لو ما فيه ولا غرفة في الجدول → يروح على الـ Waitlist
+        // إذا لا توجد غرف → أضف للانتظار
         if (roomsTable.getRowCount() == 0) {
             Waitlist w = new Waitlist(
                     guestId,
@@ -299,11 +279,12 @@ public class NewReservationScreen extends JDialog {
             );
 
             waitlistDAO.addToWaitlist(w);
-            JOptionPane.showMessageDialog(this, "No rooms found, guest added to Waitlist!");
+            JOptionPane.showMessageDialog(this, "Guest added to waitlist!");
             dispose();
             return;
         }
 
+        // إذا هناك غرف → نأخذ المختارة
         int selectedRow = roomsTable.getSelectedRow();
         if (selectedRow == -1) {
             JOptionPane.showMessageDialog(this, "Select a room first!");
@@ -320,17 +301,11 @@ public class NewReservationScreen extends JDialog {
         r.setTotalPrice(totalPrice);
 
         if (reservationDAO.createReservation(r)) {
-            // تغيير حالة الغرفة إلى Booked
-            Room room = roomDAO.getRoomById(roomId);
-            if (room != null) {
-                roomDAO.updateRoomStatus(room.getRoomNumber(), "Booked");
-            }
-
             JOptionPane.showMessageDialog(this,
                     "Reservation Created Successfully!\nTotal: " + totalPrice + " SR");
             dispose();
         } else {
-            JOptionPane.showMessageDialog(this, "Reservation Failed!");
+            JOptionPane.showMessageDialog(this, "Failed to create reservation!");
         }
     }
 }

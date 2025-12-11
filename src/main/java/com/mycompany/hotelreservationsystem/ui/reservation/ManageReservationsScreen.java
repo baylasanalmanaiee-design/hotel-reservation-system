@@ -28,7 +28,7 @@ import java.time.temporal.ChronoUnit;
 
 public class ManageReservationsScreen extends JDialog {
     private JTextField txtSearch;
-    private JButton btnSearch, btnView, btnEdit, btnCancel, btnCheckIn, btnCheckOut;
+    private JButton btnSearch, btnView, btnEdit, btnCancel, btnCheckIn, btnCheckOut, btnWaitlist;
     private JTable reservationsTable;
     private DefaultTableModel tableModel;
 
@@ -37,6 +37,8 @@ public class ManageReservationsScreen extends JDialog {
     private final RoomDAO roomDAO = new RoomDAO();
     private final RoomTypeDAO roomTypeDAO = new RoomTypeDAO();
 
+
+    
     public ManageReservationsScreen(JFrame parent) {
         super(parent, "Manage Reservations", true);
         setSize(1000, 600);
@@ -114,6 +116,14 @@ public class ManageReservationsScreen extends JDialog {
         btnCheckIn = new JButton("Go to Check-In");
         btnCheckOut = new JButton("Go to Check-Out");
 
+        btnWaitlist = new JButton("View Waitlist");
+
+
+
+
+
+        
+        
         styleActionButton(btnView);
         styleActionButton(btnEdit);
         btnCancel.setBackground(Color.ORANGE);
@@ -122,19 +132,28 @@ public class ManageReservationsScreen extends JDialog {
         btnCheckIn.setForeground(Color.WHITE);
         btnCheckOut.setBackground(new Color(23, 162, 184));
         btnCheckOut.setForeground(Color.WHITE);
-
+        btnWaitlist.setBackground(new Color(108,117,125));
+        btnWaitlist.setForeground(Color.WHITE);
+        
+        
         btnView.addActionListener(e -> viewReservationDetails());
         btnEdit.addActionListener(e -> editReservation());
         btnCancel.addActionListener(e -> cancelReservation());
         btnCheckIn.addActionListener(e -> goToCheckIn());
         btnCheckOut.addActionListener(e -> goToCheckOut());
+        btnWaitlist.addActionListener(e -> {
+    JFrame parentFrame = (JFrame) SwingUtilities.getWindowAncestor(this);
+    new WaitlistScreen(parentFrame).setVisible(true);
+});
 
+        
+        
         panel.add(btnView);
         panel.add(btnEdit);
         panel.add(btnCancel);
         panel.add(btnCheckIn);
         panel.add(btnCheckOut);
-
+        panel.add(btnWaitlist);
         return panel;
     }
 

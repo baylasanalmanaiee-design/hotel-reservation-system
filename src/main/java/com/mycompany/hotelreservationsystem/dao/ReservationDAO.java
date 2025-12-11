@@ -16,16 +16,16 @@ import java.sql.*;
 public class ReservationDAO {
 
     // ✅ التحقق من توفر نوع غرفة في فترة معينة
-   public boolean checkAvailability(int roomTypeId, String in, String out) {
+  public boolean checkAvailability(int roomTypeId, String checkIn, String checkOut) {
 
     String sql = """
         SELECT * FROM reservations r
         JOIN rooms rm ON r.room_id = rm.room_id
         WHERE rm.type_id = ?
           AND r.status <> 'Cancelled'
-          AND (
-                date(?) < date(r.check_out_date)
-            AND date(?) > date(r.check_in_date)
+          AND NOT (
+                r.check_out_date <= ?   -- new check-in
+             OR r.check_in_date >= ?   -- new check-out
           )
     """;
 
@@ -33,10 +33,12 @@ public class ReservationDAO {
          PreparedStatement stmt = conn.prepareStatement(sql)) {
 
         stmt.setInt(1, roomTypeId);
-        stmt.setString(2, out);     // new_out < old_out?
-        stmt.setString(3, in);      // new_in > old_in?
+        stmt.setString(2, checkIn);   // <= check_in
+        stmt.setString(3, checkOut);  // >= check_out
 
         ResultSet rs = stmt.executeQuery();
+
+        // إذا رجع نتائج → فيه تعارض
         return !rs.next();
 
     } catch (Exception e) {
