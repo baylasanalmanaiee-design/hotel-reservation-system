@@ -75,21 +75,21 @@ public class SeedData {
             ps.setString(1, "101");
             ps.setInt(2, 1);
             ps.setInt(3, 1); // type_id حق الـ Single
-            ps.setString(4, "AVAILABLE");
+            ps.setString(4, "Available");
             ps.executeUpdate();
 
             // 102 Double
             ps.setString(1, "102");
             ps.setInt(2, 1);
             ps.setInt(3, 2); // Double
-            ps.setString(4, "AVAILABLE");
+            ps.setString(4, "Available");
             ps.executeUpdate();
 
             // 201 Suite
             ps.setString(1, "201");
             ps.setInt(2, 2);
             ps.setInt(3, 3); // Suite
-            ps.setString(4, "AVAILABLE");
+            ps.setString(4, "Available");
             ps.executeUpdate();
 
             System.out.println("Sample rooms inserted.");
