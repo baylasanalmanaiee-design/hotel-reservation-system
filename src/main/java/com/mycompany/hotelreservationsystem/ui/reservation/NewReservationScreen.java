@@ -28,9 +28,9 @@ import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 
+
 public class NewReservationScreen extends JDialog {
 
-    // DAO objects
     private GuestDAO guestDAO = new GuestDAO();
     private RoomDAO roomDAO = new RoomDAO();
     private ReservationDAO reservationDAO = new ReservationDAO();
@@ -40,7 +40,7 @@ public class NewReservationScreen extends JDialog {
     private JTextField txtGuestName, txtPhone, txtId, txtEmail;
     private JComboBox<String> cmbRoomType;
     private JTextField txtCheckInDate, txtCheckOutDate;
-    private JButton btnSearchRooms, btnConfirm, btnCancel;
+    private JButton btnSearchRooms, btnConfirm, btnCancel, btnWaitlist;
     private JTable roomsTable;
     private DefaultTableModel tableModel;
 
@@ -108,14 +108,19 @@ public class NewReservationScreen extends JDialog {
         txtCheckOutDate = new JTextField();
         panel.add(txtCheckOutDate);
 
-        // زر البحث فقط
         btnSearchRooms = new JButton("Search Available Rooms");
         btnSearchRooms.setBackground(new Color(70, 130, 180));
         btnSearchRooms.setForeground(Color.WHITE);
         btnSearchRooms.addActionListener(e -> searchAvailableRooms());
 
+        btnWaitlist = new JButton("View Waitlist");
+        btnWaitlist.setBackground(new Color(108,117,125));
+        btnWaitlist.setForeground(Color.WHITE);
+        btnWaitlist.addActionListener(e -> new WaitlistScreen((JFrame) this.getParent()).setVisible(true));
+
         JPanel wrapper = new JPanel(new FlowLayout(FlowLayout.LEFT));
         wrapper.add(btnSearchRooms);
+        wrapper.add(btnWaitlist);
 
         JPanel outer = new JPanel(new BorderLayout());
         outer.add(panel, BorderLayout.CENTER);
@@ -173,6 +178,9 @@ public class NewReservationScreen extends JDialog {
         }
     }
 
+    // =======================
+    //     SEARCH ROOMS
+    // =======================
     private void searchAvailableRooms() {
         tableModel.setRowCount(0);
 
@@ -180,7 +188,7 @@ public class NewReservationScreen extends JDialog {
         String checkOut = txtCheckOutDate.getText().trim();
 
         if (checkIn.isEmpty() || checkOut.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Please enter both Check-In and Check-Out dates!");
+            JOptionPane.showMessageDialog(this, "Please enter both dates!");
             return;
         }
 
@@ -193,18 +201,18 @@ public class NewReservationScreen extends JDialog {
         int roomTypeId = selectedType.getId();
 
         boolean available = reservationDAO.checkAvailability(roomTypeId, checkIn, checkOut);
+
+        // ❗❗❗ إذا فيه تعارض ← نضيف مباشرة للانتظار
         if (!available) {
-            JOptionPane.showMessageDialog(this,
-                    "No rooms available. Guest will be added to waitlist.",
-                    "Waitlist",
-                    JOptionPane.WARNING_MESSAGE);
+            addGuestDirectlyToWaitlist(selectedType, checkIn, checkOut);
             return;
         }
 
+        // لو مافيه تعارض نعرض الغرف المتاحة فقط
         List<Room> allRooms = roomDAO.getAllRooms();
         for (Room room : allRooms) {
             if (room.getRoomTypeId() == roomTypeId &&
-                room.getStatus().equalsIgnoreCase("Available")) {
+                    room.getStatus().equalsIgnoreCase("Available")) {
 
                 tableModel.addRow(new Object[]{
                         room.getId(),
@@ -216,6 +224,53 @@ public class NewReservationScreen extends JDialog {
         }
     }
 
+    // =======================
+    //   ADD TO WAITLIST (NEW)
+    // =======================
+    private void addGuestDirectlyToWaitlist(RoomType rt, String checkIn, String checkOut) {
+
+        String fullName = txtGuestName.getText().trim();
+        String phone = txtPhone.getText().trim();
+        String idNum = txtId.getText().trim();
+        String email = txtEmail.getText().trim();
+
+        if (fullName.isEmpty() || phone.isEmpty() || idNum.isEmpty() || email.isEmpty()) {
+            JOptionPane.showMessageDialog(this,
+                    "Enter guest info before searching!",
+                    "Missing Guest Info",
+                    JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        Guest g = new Guest(0, fullName, phone, idNum, email);
+        int guestId = guestDAO.addGuest(g);
+
+        if (guestId == -1) {
+            JOptionPane.showMessageDialog(this, "Failed to save guest!");
+            return;
+        }
+
+        Waitlist w = new Waitlist(
+                guestId,
+                rt.getId(),
+                checkIn,
+                checkOut,
+                java.time.LocalDateTime.now().toString()
+        );
+
+        waitlistDAO.addToWaitlist(w);
+
+        JOptionPane.showMessageDialog(this,
+                "No rooms available.\nGuest added to WAITLIST.",
+                "Waitlist",
+                JOptionPane.INFORMATION_MESSAGE);
+
+        dispose();
+    }
+
+    // =======================
+    // CONFIRM RESERVATION
+    // =======================
     private void confirmReservation() {
         String fullName = txtGuestName.getText().trim();
         String phone = txtPhone.getText().trim();
@@ -259,7 +314,6 @@ public class NewReservationScreen extends JDialog {
         RoomType selectedType = roomTypes.get(cmbRoomType.getSelectedIndex());
         double totalPrice = selectedType.getBasePrice() * nights;
 
-        // حفظ الضيف
         Guest guest = new Guest(0, fullName, phone, idNum, email);
         int guestId = guestDAO.addGuest(guest);
 
@@ -268,7 +322,6 @@ public class NewReservationScreen extends JDialog {
             return;
         }
 
-        // إذا لا توجد غرف → أضف للانتظار
         if (roomsTable.getRowCount() == 0) {
             Waitlist w = new Waitlist(
                     guestId,
@@ -284,7 +337,6 @@ public class NewReservationScreen extends JDialog {
             return;
         }
 
-        // إذا هناك غرف → نأخذ المختارة
         int selectedRow = roomsTable.getSelectedRow();
         if (selectedRow == -1) {
             JOptionPane.showMessageDialog(this, "Select a room first!");
@@ -303,9 +355,12 @@ public class NewReservationScreen extends JDialog {
         if (reservationDAO.createReservation(r)) {
             JOptionPane.showMessageDialog(this,
                     "Reservation Created Successfully!\nTotal: " + totalPrice + " SR");
+
             dispose();
         } else {
             JOptionPane.showMessageDialog(this, "Failed to create reservation!");
         }
     }
+
 }
+
