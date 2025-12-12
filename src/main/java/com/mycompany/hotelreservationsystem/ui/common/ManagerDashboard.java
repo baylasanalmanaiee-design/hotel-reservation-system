@@ -2,18 +2,12 @@ package com.mycompany.hotelreservationsystem.ui.common;
 
 import javax.swing.*;
 import java.awt.*;
-/**
- *
- * @author kady
- */
 
 import com.mycompany.hotelreservationsystem.ui.rooms.RoomsStatusScreen;
 import com.mycompany.hotelreservationsystem.ui.reservation.ManageReservationsScreen;
-import com.mycompany.hotelreservationsystem.ui.billing.InvoiceViewScreen;
-import com.mycompany.hotelreservationsystem.ui.rooms.RoomsStatusScreen;
 import com.mycompany.hotelreservationsystem.ui.rooms.ManageRoomsScreen;
 import com.mycompany.hotelreservationsystem.ui.rooms.ManageRoomTypesScreen;
-
+import com.mycompany.hotelreservationsystem.ui.billing.IncomeReportScreen;
 
 public class ManagerDashboard extends JFrame {
 
@@ -24,13 +18,11 @@ public class ManagerDashboard extends JFrame {
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLayout(null);
 
-        // العنوان
         JLabel title = new JLabel("Manager Dashboard", SwingConstants.CENTER);
         title.setBounds(0, 10, 450, 30);
         title.setFont(new Font("Arial", Font.BOLD, 18));
         add(title);
 
-        // الأزرار
         JButton manageRooms = new JButton("Manage Rooms");
         manageRooms.setBounds(135, 60, 180, 30);
 
@@ -49,15 +41,13 @@ public class ManagerDashboard extends JFrame {
         JButton logout = new JButton("Logout");
         logout.setBounds(135, 270, 180, 30);
 
-        // نفس ستايل الرسبشن
-        styleButton(manageRooms,        new Color(70, 130, 180));  // أزرق
-        styleButton(manageRoomTypes,    new Color(40, 167, 69));   // أخضر
-        styleButton(roomStatus,         new Color(111, 66, 193));  // بنفسجي
-        styleButton(reservationsReport, new Color(255, 193, 7));   // أصفر
-        styleButton(incomeReport,       new Color(23, 162, 184));  // سماوي
-        styleButton(logout,             new Color(108, 117, 125)); // رمادي
+        styleButton(manageRooms,        new Color(70, 130, 180));
+        styleButton(manageRoomTypes,    new Color(40, 167, 69));
+        styleButton(roomStatus,         new Color(111, 66, 193));
+        styleButton(reservationsReport, new Color(255, 193, 7));
+        styleButton(incomeReport,       new Color(23, 162, 184));
+        styleButton(logout,             new Color(108, 117, 125));
 
-        // ربط الأزرار بالشاشات
         manageRooms.addActionListener(e -> openManageRooms());
         manageRoomTypes.addActionListener(e -> openManageRoomTypes());
         roomStatus.addActionListener(e -> openRoomStatus());
@@ -73,7 +63,7 @@ public class ManagerDashboard extends JFrame {
             );
             if (confirm == JOptionPane.YES_OPTION) {
                 dispose();
-                new LoginForm().setVisible(true); // رجوع لواجهة اللوق إن
+                new LoginForm().setVisible(true);
             }
         });
 
@@ -87,7 +77,6 @@ public class ManagerDashboard extends JFrame {
         setVisible(true);
     }
 
-    // تنسيق الأزرار
     private void styleButton(JButton button, Color color) {
         button.setBackground(color);
         button.setForeground(Color.WHITE);
@@ -95,41 +84,31 @@ public class ManagerDashboard extends JFrame {
         button.setFont(new Font("Arial", Font.BOLD, 12));
     }
 
-    // الدوال اللي تفتح الشاشات
-
-    // هذي لسه TODO لأن ما عندكم شاشة ManageRooms جاهزة
     private void openManageRooms() {
-       // تفتح شاشة إدارة الغرف
-       ManageRoomsScreen screen = new ManageRoomsScreen(this);
-       screen.setVisible(true);
-   }
+        ManageRoomsScreen screen = new ManageRoomsScreen(this);
+        screen.setVisible(true);
+    }
 
-   private void openManageRoomTypes() {
-       // تفتح شاشة أنواع الغرف
-       ManageRoomTypesScreen screen = new ManageRoomTypesScreen(this);
-       screen.setVisible(true);
-   }
-
+    private void openManageRoomTypes() {
+        ManageRoomTypesScreen screen = new ManageRoomTypesScreen(this);
+        screen.setVisible(true);
+    }
 
     private void openRoomStatus() {
-        // هذه مرتبطة فعلياً بشاشة حالة الغرف
         RoomsStatusScreen screen = new RoomsStatusScreen(this);
         screen.setVisible(true);
     }
 
     private void openReservationsReport() {
-        // حالياً نخليها تفتح شاشة إدارة الحجوزات
         ManageReservationsScreen screen = new ManageReservationsScreen(this);
         screen.setVisible(true);
     }
 
     private void openIncomeReport() {
-        // نفتح شاشة عرض الفواتير/الدخل
-        InvoiceViewScreen screen = new InvoiceViewScreen(this);
+        IncomeReportScreen screen = new IncomeReportScreen(this);
         screen.setVisible(true);
     }
 
-    // main للتجربة
     public static void main(String[] args) {
         new ManagerDashboard();
     }

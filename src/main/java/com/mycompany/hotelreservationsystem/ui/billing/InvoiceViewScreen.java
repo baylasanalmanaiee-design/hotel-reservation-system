@@ -1,162 +1,222 @@
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
- */
-
 package com.mycompany.hotelreservationsystem.ui.billing;
 
-/**
- *
- * @author Aroob
- */
+import com.mycompany.hotelreservationsystem.dao.InvoiceDAO;
+import com.mycompany.hotelreservationsystem.dao.PaymentDAO;
+import com.mycompany.hotelreservationsystem.model.Invoice;
+import com.mycompany.hotelreservationsystem.model.Payment;
 
 import javax.swing.*;
+import javax.swing.table.DefaultTableModel;
 import java.awt.*;
+import java.util.List;
 
 public class InvoiceViewScreen extends JDialog {
 
-    private JTextArea txtInvoiceDetails;
-    private JButton btnPrint, btnExportPDF, btnClose;
-    private String reservationId;
+    private JLabel lblInvoiceId;
+    private JLabel lblReservation;
+    private JLabel lblDate;
+    private JLabel lblTotal;
+    private JLabel lblPaid;
+    private JLabel lblBalance;
 
-    public InvoiceViewScreen(JFrame parent, String reservationId) {
-        super(parent, "Invoice Details - " + reservationId, true);
-        this.reservationId = reservationId;
+    private JTable paymentsTable;
+    private DefaultTableModel paymentsModel;
 
-        setSize(600, 500);
+    private JTextField txtPayAmount;
+    private JComboBox<String> cmbPayMethod;
+    private JButton btnAddPayment;
+    private JButton btnClose;
+
+    private Invoice invoice;
+
+    public InvoiceViewScreen(JFrame parent, String reservationCode) {
+        super(parent, "Invoice View", true);
+        setSize(700, 500);
         setLocationRelativeTo(parent);
-
         initUI();
-        loadInvoiceData();
-    }
-
-    public InvoiceViewScreen(JFrame parent) {
-        this(parent, "UNKNOWN");
+        loadInvoiceAndPayments(reservationCode);
     }
 
     private void initUI() {
-        JPanel mainPanel = new JPanel(new BorderLayout(10, 10));
-        mainPanel.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
+        JPanel main = new JPanel(new BorderLayout(10, 10));
+        main.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
 
-        mainPanel.add(createInvoicePanel(), BorderLayout.CENTER);
-        mainPanel.add(createButtonPanel(), BorderLayout.SOUTH);
+        JPanel header = new JPanel(new GridLayout(3, 2, 10, 8));
+        header.setBorder(BorderFactory.createTitledBorder("Invoice Info"));
 
-        add(mainPanel);
-    }
+        lblInvoiceId = new JLabel("-");
+        lblReservation = new JLabel("-");
+        lblDate = new JLabel("-");
+        lblTotal = new JLabel("-");
+        lblPaid = new JLabel("-");
+        lblBalance = new JLabel("-");
 
-    private JPanel createInvoicePanel() {
-        JPanel panel = new JPanel(new BorderLayout());
-        panel.setBorder(BorderFactory.createTitledBorder("Invoice Details"));
+        header.add(new JLabel("Invoice ID:"));
+        header.add(lblInvoiceId);
+        header.add(new JLabel("Reservation:"));
+        header.add(lblReservation);
+        header.add(new JLabel("Created At:"));
+        header.add(lblDate);
 
-        txtInvoiceDetails = new JTextArea(20, 50);
-        txtInvoiceDetails.setEditable(false);
-        txtInvoiceDetails.setFont(new Font("Monospaced", Font.PLAIN, 12));
+        JPanel totals = new JPanel(new GridLayout(1, 6, 10, 8));
+        totals.setBorder(BorderFactory.createTitledBorder("Totals"));
 
-        JScrollPane scrollPane = new JScrollPane(txtInvoiceDetails);
-        panel.add(scrollPane, BorderLayout.CENTER);
+        totals.add(new JLabel("Total:"));
+        totals.add(lblTotal);
+        totals.add(new JLabel("Paid:"));
+        totals.add(lblPaid);
+        totals.add(new JLabel("Balance:"));
+        totals.add(lblBalance);
 
-        return panel;
-    }
+        JPanel top = new JPanel(new BorderLayout(10, 10));
+        top.add(header, BorderLayout.CENTER);
+        top.add(totals, BorderLayout.SOUTH);
 
-    private JPanel createButtonPanel() {
-        JPanel panel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        paymentsModel = new DefaultTableModel(new String[]{"Payment ID", "Amount", "Method", "Paid At"}, 0) {
+            @Override
+            public boolean isCellEditable(int row, int column) {
+                return false;
+            }
+        };
+        paymentsTable = new JTable(paymentsModel);
+        JScrollPane scroll = new JScrollPane(paymentsTable);
+        JPanel center = new JPanel(new BorderLayout());
+        center.setBorder(BorderFactory.createTitledBorder("Payments"));
+        center.add(scroll, BorderLayout.CENTER);
 
-        btnPrint = new JButton("Print");
-        btnExportPDF = new JButton("Export PDF");
+        JPanel payPanel = new JPanel(new GridLayout(1, 6, 10, 8));
+        payPanel.setBorder(BorderFactory.createTitledBorder("Add Payment"));
+
+        txtPayAmount = new JTextField();
+        cmbPayMethod = new JComboBox<>(new String[]{"CASH", "CARD", "TRANSFER"});
+        btnAddPayment = new JButton("Add Payment");
         btnClose = new JButton("Close");
 
-        styleButton(btnPrint, new Color(70, 130, 180));
-        styleButton(btnExportPDF, new Color(220, 53, 69));
-        styleButton(btnClose, new Color(108, 117, 125));
+        payPanel.add(new JLabel("Amount:"));
+        payPanel.add(txtPayAmount);
+        payPanel.add(new JLabel("Method:"));
+        payPanel.add(cmbPayMethod);
+        payPanel.add(btnAddPayment);
+        payPanel.add(btnClose);
 
-        btnPrint.addActionListener(e -> printInvoice());
-        btnExportPDF.addActionListener(e -> exportPDF());
+        btnAddPayment.addActionListener(e -> addPayment());
         btnClose.addActionListener(e -> dispose());
 
-        panel.add(btnPrint);
-        panel.add(btnExportPDF);
-        panel.add(btnClose);
+        main.add(top, BorderLayout.NORTH);
+        main.add(center, BorderLayout.CENTER);
+        main.add(payPanel, BorderLayout.SOUTH);
 
-        return panel;
+        add(main);
     }
 
-    private void styleButton(JButton btn, Color color) {
-        btn.setBackground(color);
-        btn.setForeground(Color.WHITE);
-        btn.setFocusPainted(false);
-        btn.setFont(new Font("Arial", Font.BOLD, 12));
-    }
-
-    private void loadInvoiceData() {
-
-        StringBuilder invoice = new StringBuilder();
-
-        invoice.append("============================================\n");
-        invoice.append("                 HOTEL INVOICE\n");
-        invoice.append("============================================\n\n");
-
-        invoice.append("Invoice No: INV-").append(reservationId).append("\n");
-        invoice.append("Reservation ID: ").append(reservationId).append("\n");
-        invoice.append("Date: ").append(java.time.LocalDate.now()).append("\n");
-        invoice.append("Guest: John Smith\n");
-        invoice.append("Room: 101 (Single)\n");
-        invoice.append("Stay: 2024-01-15 to 2024-01-20 (5 nights)\n\n");
-
-        invoice.append("--------------------------------------------\n");
-        invoice.append("CHARGES\n");
-        invoice.append("--------------------------------------------\n");
-
-        invoice.append(String.format("%-30s $%.2f\n", "Room Charges (5 nights)", 500.00));
-        invoice.append(String.format("%-30s $%.2f\n", "Tax 10%", 50.00));
-        invoice.append(String.format("%-30s $%.2f\n", "Service Fee", 25.00));
-        invoice.append(String.format("%-30s $%.2f\n", "Mini Bar", 45.50));
-        invoice.append(String.format("%-30s $%.2f\n", "Late Check-out Penalty", 30.00));
-
-        invoice.append("--------------------------------------------\n");
-        invoice.append(String.format("%-30s $%.2f\n", "SUBTOTAL", 650.50));
-        invoice.append(String.format("%-30s -$%.2f\n", "Discount", 50.00));
-        invoice.append("--------------------------------------------\n");
-        invoice.append(String.format("%-30s $%.2f\n", "TOTAL AMOUNT", 600.50));
-        invoice.append(String.format("%-30s $%.2f\n", "Deposit Paid", 100.00));
-        invoice.append(String.format("%-30s $%.2f\n", "BALANCE DUE", 500.50));
-        invoice.append("============================================\n");
-        invoice.append("Thank you for staying with us!\n");
-
-        txtInvoiceDetails.setText(invoice.toString());
-    }
-
-    private void printInvoice() {
-        try {
-            if (txtInvoiceDetails.print()) {
-                JOptionPane.showMessageDialog(this, "Invoice printed successfully!");
-            } else {
-                JOptionPane.showMessageDialog(this, "Printing was cancelled.");
+    private int parseReservationId(String reservationCode) {
+        if (reservationCode == null) return 0;
+        String code = reservationCode.trim();
+        if (code.startsWith("RES")) {
+            String num = code.substring(3).replaceAll("\\D+", "");
+            if (num.isEmpty()) return 0;
+            try {
+                return Integer.parseInt(num);
+            } catch (NumberFormatException ignored) {
+                return 0;
             }
-        } catch (Exception ex) {
-            JOptionPane.showMessageDialog(this,
-                    "Print Error: " + ex.getMessage(),
-                    "Error",
-                    JOptionPane.ERROR_MESSAGE);
+        }
+        String digits = code.replaceAll("\\D+", "");
+        if (digits.isEmpty()) return 0;
+        try {
+            return Integer.parseInt(digits);
+        } catch (NumberFormatException ignored) {
+            return 0;
         }
     }
 
-    private void exportPDF() {
-        JOptionPane.showMessageDialog(this,
-                "PDF export feature will be implemented later.\n" +
-                "Reservation: " + reservationId,
-                "Export PDF",
-                JOptionPane.INFORMATION_MESSAGE);
+    private void loadInvoiceAndPayments(String reservationCode) {
+        int reservationId = parseReservationId(reservationCode);
+
+        invoice = InvoiceDAO.getByReservationId(reservationId);
+
+        if (invoice == null) {
+            lblInvoiceId.setText("-");
+            lblReservation.setText(reservationCode == null ? "-" : reservationCode);
+            lblDate.setText("-");
+            lblTotal.setText("$0.00");
+            lblPaid.setText("$0.00");
+            lblBalance.setText("$0.00");
+            paymentsModel.setRowCount(0);
+            JOptionPane.showMessageDialog(this, "No invoice found for this reservation.", "Info", JOptionPane.INFORMATION_MESSAGE);
+            return;
+        }
+
+        lblInvoiceId.setText(String.valueOf(invoice.getId()));
+        lblReservation.setText("RES" + String.format("%03d", invoice.getReservationId()));
+        lblDate.setText(invoice.getDate());
+
+        refreshPayments();
     }
 
-    public void updateReservationId(String newId) {
-        this.reservationId = newId;
-        setTitle("Invoice Details - " + reservationId);
-        loadInvoiceData();
+    private void refreshPayments() {
+        paymentsModel.setRowCount(0);
+
+        double total = invoice.getAmount();
+        double paid = 0.0;
+
+        List<Payment> payments = PaymentDAO.getByInvoice(invoice.getId());
+        for (Payment p : payments) {
+            paid += p.getAmount();
+            paymentsModel.addRow(new Object[]{
+                    p.getId(),
+                    String.format("$%.2f", p.getAmount()),
+                    p.getMethod(),
+                    p.getDate()
+            });
+        }
+
+        double balance = total - paid;
+        if (balance < 0) balance = 0.0;
+
+        lblTotal.setText(String.format("$%.2f", total));
+        lblPaid.setText(String.format("$%.2f", paid));
+        lblBalance.setText(String.format("$%.2f", balance));
     }
 
-    public static void main(String[] args) {
-        JFrame frame = new JFrame();
-        InvoiceViewScreen screen = new InvoiceViewScreen(frame, "TEST123");
-        screen.setVisible(true);
+    private void addPayment() {
+        if (invoice == null) {
+            JOptionPane.showMessageDialog(this, "No invoice loaded.", "Error", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        String amtText = txtPayAmount.getText().trim();
+        if (amtText.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Enter payment amount.", "Validation", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        double amt;
+        try {
+            amt = Double.parseDouble(amtText);
+        } catch (NumberFormatException e) {
+            JOptionPane.showMessageDialog(this, "Amount must be numeric.", "Validation", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        if (amt <= 0) {
+            JOptionPane.showMessageDialog(this, "Amount must be greater than 0.", "Validation", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        Payment p = new Payment();
+        p.setInvoiceId(invoice.getId());
+        p.setAmount(amt);
+        p.setMethod(String.valueOf(cmbPayMethod.getSelectedItem()));
+        p.setDate(java.time.LocalDateTime.now().toString());
+
+        int newId = PaymentDAO.insert(p);
+        if (newId > 0) {
+            txtPayAmount.setText("");
+            refreshPayments();
+            JOptionPane.showMessageDialog(this, "Payment saved. ID: " + newId, "Success", JOptionPane.INFORMATION_MESSAGE);
+        } else {
+            JOptionPane.showMessageDialog(this, "Failed to save payment.", "Error", JOptionPane.ERROR_MESSAGE);
+        }
     }
 }

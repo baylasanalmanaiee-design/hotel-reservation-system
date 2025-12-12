@@ -6,7 +6,7 @@ package com.mycompany.hotelreservationsystem.model;
 
 /**
  *
- * @author kady
+ * @author kaady
  */
 public class Reservation {
     private int id;

@@ -1,309 +1,306 @@
-/*
- * Billing / Check-Out screen - Work by Aroob
- */
 package com.mycompany.hotelreservationsystem.ui.billing;
+
+import com.mycompany.hotelreservationsystem.DatabaseConnection;
+import com.mycompany.hotelreservationsystem.dao.DiscountDAO;
+import com.mycompany.hotelreservationsystem.dao.InvoiceDAO;
+import com.mycompany.hotelreservationsystem.dao.ReservationDAO;
+import com.mycompany.hotelreservationsystem.dao.RoomDAO;
+import com.mycompany.hotelreservationsystem.model.Invoice;
+import com.mycompany.hotelreservationsystem.model.Reservation;
 
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
-
-// DAO + model for invoices (by Aroob)
-import com.mycompany.hotelreservationsystem.dao.InvoiceDAO;
-import com.mycompany.hotelreservationsystem.model.Invoice;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
+import java.util.List;
 
 public class CheckOutScreen extends JDialog {
+
     private JComboBox<String> cmbReservations;
     private JTextField txtNights, txtRoomPrice, txtDiscount, txtPenalty;
     private JTextArea txtExtraServices;
     private JButton btnGenerateInvoice, btnCompleteCheckout, btnCancel;
     private JTable chargesTable;
     private DefaultTableModel tableModel;
-    
+
+    private final ReservationDAO reservationDAO = new ReservationDAO();
+    private final RoomDAO roomDAO = new RoomDAO();
+    private final DiscountDAO discountDAO = new DiscountDAO();
+
+    private static final double TAX_RATE = 0.10;
+    private static final double SERVICE_FEE = 25.00;
+
     public CheckOutScreen(JFrame parent) {
         super(parent, "Check-Out", true);
         setSize(800, 600);
         setLocationRelativeTo(parent);
         initializeComponents();
     }
-    
+
     private void initializeComponents() {
         JPanel mainPanel = new JPanel(new BorderLayout(10, 10));
         mainPanel.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
-        
-        JPanel selectionPanel = createSelectionPanel();
-        JPanel chargesPanel = createChargesPanel();
-        JPanel buttonPanel = createButtonPanel();
-        
-        mainPanel.add(selectionPanel, BorderLayout.NORTH);
-        mainPanel.add(chargesPanel, BorderLayout.CENTER);
-        mainPanel.add(buttonPanel, BorderLayout.SOUTH);
-        
+
+        mainPanel.add(createSelectionPanel(), BorderLayout.NORTH);
+        mainPanel.add(createChargesPanel(), BorderLayout.CENTER);
+        mainPanel.add(createButtonPanel(), BorderLayout.SOUTH);
+
         add(mainPanel);
+
         loadCheckedInReservations();
+        addListeners();
     }
-    
+
     private JPanel createSelectionPanel() {
         JPanel panel = new JPanel(new GridLayout(2, 1, 10, 10));
         panel.setBorder(BorderFactory.createTitledBorder("Select Reservation for Check-Out"));
-        
-        JPanel topPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        topPanel.add(new JLabel("Reservation:"));
+
+        JPanel top = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        top.add(new JLabel("Reservation (CHECKED_IN):"));
         cmbReservations = new JComboBox<>();
-        cmbReservations.setPreferredSize(new Dimension(300, 25));
-        topPanel.add(cmbReservations);
-        
-        JPanel bottomPanel = new JPanel(new GridLayout(1, 4, 10, 10));
-        bottomPanel.add(new JLabel("Nights:"));
+        cmbReservations.setPreferredSize(new Dimension(360, 25));
+        top.add(cmbReservations);
+
+        JPanel bottom = new JPanel(new GridLayout(1, 4, 10, 10));
+        bottom.add(new JLabel("Nights:"));
         txtNights = new JTextField();
         txtNights.setEditable(false);
-        bottomPanel.add(txtNights);
-        
-        bottomPanel.add(new JLabel("Room Price/Night:"));
+        bottom.add(txtNights);
+
+        bottom.add(new JLabel("Room Price/Night:"));
         txtRoomPrice = new JTextField();
         txtRoomPrice.setEditable(false);
-        bottomPanel.add(txtRoomPrice);
-        
-        panel.add(topPanel);
-        panel.add(bottomPanel);
-        
+        bottom.add(txtRoomPrice);
+
+        panel.add(top);
+        panel.add(bottom);
+
         return panel;
     }
-    
+
     private JPanel createChargesPanel() {
         JPanel panel = new JPanel(new BorderLayout(10, 10));
-        
-        JPanel tablePanel = new JPanel(new BorderLayout());
-        tablePanel.setBorder(BorderFactory.createTitledBorder("Charges Breakdown"));
-        
+
         String[] columns = {"Description", "Amount"};
         tableModel = new DefaultTableModel(columns, 0) {
-            @Override
-            public Class<?> getColumnClass(int column) {
-                return String.class;
-            }
+            @Override public boolean isCellEditable(int r, int c) { return false; }
         };
+
         chargesTable = new JTable(tableModel);
-        
-        JScrollPane scrollPane = new JScrollPane(chargesTable);
-        tablePanel.add(scrollPane, BorderLayout.CENTER);
-        
+        chargesTable.setRowHeight(24);
+
+        JScrollPane tableScroll = new JScrollPane(chargesTable);
+        JPanel tablePanel = new JPanel(new BorderLayout());
+        tablePanel.setBorder(BorderFactory.createTitledBorder("Charges Breakdown"));
+        tablePanel.add(tableScroll, BorderLayout.CENTER);
+
+        txtExtraServices = new JTextArea(3, 40);
+        JScrollPane servicesScroll = new JScrollPane(txtExtraServices);
         JPanel servicesPanel = new JPanel(new BorderLayout());
         servicesPanel.setBorder(BorderFactory.createTitledBorder("Extra Services"));
-        
-        txtExtraServices = new JTextArea(3, 40);
-        txtExtraServices.setLineWrap(true);
-        txtExtraServices.setText("Mini Bar: $35.50\nRoom Service: $25.00");
-        JScrollPane servicesScroll = new JScrollPane(txtExtraServices);
         servicesPanel.add(servicesScroll, BorderLayout.CENTER);
-        
+
         JPanel discountPanel = new JPanel(new GridLayout(1, 4, 10, 10));
-        discountPanel.add(new JLabel("Discount:"));
-        txtDiscount = new JTextField("50.00");
+        discountPanel.add(new JLabel("Discount Code:"));
+        txtDiscount = new JTextField();
         discountPanel.add(txtDiscount);
-        
         discountPanel.add(new JLabel("Late Penalty:"));
-        txtPenalty = new JTextField("30.00");
+        txtPenalty = new JTextField("0.00");
         discountPanel.add(txtPenalty);
-        
+
         panel.add(tablePanel, BorderLayout.CENTER);
-        
-        JPanel southPanel = new JPanel(new BorderLayout());
-        southPanel.add(discountPanel, BorderLayout.NORTH);
-        southPanel.add(servicesPanel, BorderLayout.SOUTH);
-        
-        panel.add(southPanel, BorderLayout.SOUTH);
-        
+
+        JPanel south = new JPanel(new BorderLayout());
+        south.add(discountPanel, BorderLayout.NORTH);
+        south.add(servicesPanel, BorderLayout.SOUTH);
+
+        panel.add(south, BorderLayout.SOUTH);
+
         return panel;
     }
-    
+
     private JPanel createButtonPanel() {
         JPanel panel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
-        
+
         btnGenerateInvoice = new JButton("Generate Invoice");
         btnCompleteCheckout = new JButton("Complete Check-Out");
         btnCancel = new JButton("Cancel");
-        
-        btnGenerateInvoice.setBackground(new Color(70, 130, 180));
-        btnGenerateInvoice.setForeground(Color.WHITE);
-        btnCompleteCheckout.setBackground(new Color(40, 167, 69));
-        btnCompleteCheckout.setForeground(Color.WHITE);
-        btnCancel.setBackground(new Color(220, 53, 69));
-        btnCancel.setForeground(Color.WHITE);
-        
-        btnGenerateInvoice.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                generateInvoice();
-            }
-        });
-        
-        btnCompleteCheckout.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                completeCheckout();
-            }
-        });
-        
+
+        btnGenerateInvoice.addActionListener(e -> generateInvoice());
+        btnCompleteCheckout.addActionListener(e -> completeCheckout());
         btnCancel.addActionListener(e -> dispose());
-        
+
         panel.add(btnGenerateInvoice);
         panel.add(btnCompleteCheckout);
         panel.add(btnCancel);
-        
+
         return panel;
     }
-    
+
+    private void addListeners() {
+        cmbReservations.addActionListener(e -> updateCharges());
+        txtDiscount.addActionListener(e -> updateCharges());
+        txtPenalty.addActionListener(e -> updateCharges());
+    }
+
     private void loadCheckedInReservations() {
-        // later: load from ReservationDAO (now sample data)
-        cmbReservations.addItem("RES002 - Sarah Johnson - Room 205");
-        cmbReservations.addItem("RES004 - Emily Wilson - Room 104");
-        
-        cmbReservations.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                updateCharges();
-            }
-        });
-        
+        cmbReservations.removeAllItems();
+        for (Reservation r : getCheckedInReservationsFromDB()) {
+            cmbReservations.addItem(r.getId() + " | Guest " + r.getGuestId() + " | Room " + r.getRoomId());
+        }
         if (cmbReservations.getItemCount() > 0) {
             cmbReservations.setSelectedIndex(0);
             updateCharges();
         }
     }
-    
-    private void updateCharges() {
-        tableModel.setRowCount(0);
-        
-        if (cmbReservations.getSelectedItem() != null) {
-            txtNights.setText("5");
-            txtRoomPrice.setText("$100.00");
-            
-            tableModel.addRow(new Object[]{"Room Charges (5 nights)", "$500.00"});
-            tableModel.addRow(new Object[]{"Tax (10%)", "$50.00"});
-            tableModel.addRow(new Object[]{"Service Fee", "$25.00"});
-            tableModel.addRow(new Object[]{"Mini Bar", "$35.50"});
-            tableModel.addRow(new Object[]{"Room Service", "$25.00"});
-            tableModel.addRow(new Object[]{"Late Check-out Penalty", "$30.00"});
-            tableModel.addRow(new Object[]{"", ""});
-            
-            double subtotal = 500.00 + 50.00 + 25.00 + 35.50 + 25.00 + 30.00;
-            double discount = 0.0;
-            try {
-                discount = Double.parseDouble(txtDiscount.getText());
-            } catch (NumberFormatException ex) {
-                discount = 0.0;
+
+    private List<Reservation> getCheckedInReservationsFromDB() {
+        List<Reservation> list = new ArrayList<>();
+        String sql = """
+            SELECT reservation_id, guest_id, room_id, check_in_date, check_out_date, total_price
+            FROM reservations
+            WHERE status = 'CHECKED_IN'
+            ORDER BY reservation_id DESC
+        """;
+        try (Connection c = DatabaseConnection.getConnection();
+             PreparedStatement s = c.prepareStatement(sql);
+             ResultSet r = s.executeQuery()) {
+            while (r.next()) {
+                list.add(new Reservation(
+                        r.getInt("reservation_id"),
+                        r.getInt("guest_id"),
+                        r.getInt("room_id"),
+                        r.getString("check_in_date"),
+                        r.getString("check_out_date"),
+                        r.getDouble("total_price")
+                ));
             }
-            double total = subtotal - discount;
-            
-            tableModel.addRow(new Object[]{"SUBTOTAL", String.format("$%.2f", subtotal)});
-            tableModel.addRow(new Object[]{"DISCOUNT", String.format("-$%.2f", discount)});
-            tableModel.addRow(new Object[]{"TOTAL AMOUNT", String.format("$%.2f", total)});
+        } catch (Exception ignored) {}
+        return list;
+    }
+
+    private int parseReservationId(String text) {
+        try {
+            return Integer.parseInt(text.split("\\|")[0].trim());
+        } catch (Exception e) {
+            return 0;
         }
     }
-    
-    // helper to parse number from "$123.45"
+
+    private void updateCharges() {
+        tableModel.setRowCount(0);
+        if (cmbReservations.getSelectedItem() == null) return;
+
+        int id = parseReservationId(cmbReservations.getSelectedItem().toString());
+        Reservation r = reservationDAO.getReservationById(id);
+        if (r == null) return;
+
+        long nights = calculateNights(r.getCheckInDate(), r.getCheckOutDate());
+        double price = getRoomPricePerNight(r.getRoomId());
+
+        txtNights.setText(String.valueOf(nights));
+        txtRoomPrice.setText(String.format("$%.2f", price));
+
+        double roomTotal = nights * price;
+        double tax = roomTotal * TAX_RATE;
+        double penalty = parseDouble(txtPenalty.getText());
+
+        tableModel.addRow(new Object[]{"Room Charges", money(roomTotal)});
+        tableModel.addRow(new Object[]{"Tax", money(tax)});
+        tableModel.addRow(new Object[]{"Service Fee", money(SERVICE_FEE)});
+
+        double subtotal = roomTotal + tax + SERVICE_FEE + penalty;
+
+        double discountPct = txtDiscount.getText().isBlank() ? 0.0 :
+                discountDAO.getPercentageIfValid(txtDiscount.getText().trim());
+
+        double discount = subtotal * (discountPct / 100.0);
+        double total = subtotal - discount;
+
+        tableModel.addRow(new Object[]{"SUBTOTAL", money(subtotal)});
+        tableModel.addRow(new Object[]{"DISCOUNT", "-" + money(discount)});
+        tableModel.addRow(new Object[]{"TOTAL AMOUNT", money(total)});
+    }
+
+    private long calculateNights(String in, String out) {
+        try {
+            return Math.max(0, ChronoUnit.DAYS.between(LocalDate.parse(in), LocalDate.parse(out)));
+        } catch (Exception e) {
+            return 0;
+        }
+    }
+
+    private double getRoomPricePerNight(int roomId) {
+        String sql = """
+            SELECT rt.base_price
+            FROM rooms r
+            JOIN room_types rt ON r.type_id = rt.type_id
+            WHERE r.room_id = ?
+        """;
+        try (Connection c = DatabaseConnection.getConnection();
+             PreparedStatement s = c.prepareStatement(sql)) {
+            s.setInt(1, roomId);
+            ResultSet r = s.executeQuery();
+            if (r.next()) return r.getDouble("base_price");
+        } catch (Exception ignored) {}
+        return 0.0;
+    }
+
+    private double parseDouble(String t) {
+        try {
+            return Double.parseDouble(t.replace("$", "").trim());
+        } catch (Exception e) {
+            return 0.0;
+        }
+    }
+
+    private String money(double v) {
+        return String.format("$%.2f", v);
+    }
+
     private double getAmountFromRow(String label) {
         for (int i = 0; i < tableModel.getRowCount(); i++) {
-            String desc = String.valueOf(tableModel.getValueAt(i, 0));
-            if (label.equals(desc)) {
-                String raw = String.valueOf(tableModel.getValueAt(i, 1));
-                raw = raw.replace("$", "").replace(",", "").trim();
-                if (raw.startsWith("-")) {
-                    raw = raw.substring(1);
-                }
-                try {
-                    return Double.parseDouble(raw);
-                } catch (NumberFormatException ex) {
-                    return 0.0;
-                }
+            if (label.equals(tableModel.getValueAt(i, 0))) {
+                return parseDouble(tableModel.getValueAt(i, 1).toString());
             }
         }
         return 0.0;
     }
-    
-    // convert "RES002 - Sarah ..." -> 2 (for DB reservation_id)
-    private int parseReservationId(String comboText) {
-        // "RES002 - Sarah Johnson - Room 205"
-        String[] parts = comboText.split(" - ");
-        if (parts.length == 0) return 0;
 
-        String code = parts[0].trim(); // "RES002"
-        if (code.startsWith("RES")) {
-            String num = code.substring(3); // "002"
-            try {
-                return Integer.parseInt(num);
-            } catch (NumberFormatException e) {
-                return 0;
-            }
-        }
-        return 0;
-    }
-    
     private void generateInvoice() {
-        if (cmbReservations.getSelectedIndex() == -1) {
-            JOptionPane.showMessageDialog(this, "Please select a reservation first.");
-            return;
-        }
+        if (cmbReservations.getSelectedIndex() == -1) return;
 
-        // get totals from table
-        double subtotal = getAmountFromRow("SUBTOTAL");
-        double discountAmount = getAmountFromRow("DISCOUNT");
-        double totalAmount = getAmountFromRow("TOTAL AMOUNT");
-        double taxAmount = 0.0; // tax already included in subtotal in this demo
+        int id = parseReservationId(cmbReservations.getSelectedItem().toString());
+        double total = getAmountFromRow("TOTAL AMOUNT");
 
-        String selectedItem = cmbReservations.getSelectedItem().toString();
-        int reservationDbId = parseReservationId(selectedItem);
-        
-        // build invoice model (without تعديل كلاس Invoice)
-        Invoice invoice = new Invoice();
-        invoice.setReservationId(reservationDbId);
+        Invoice inv = new Invoice();
+        inv.setReservationId(id);
+        inv.setAmount(total);
+        inv.setDate(java.time.LocalDateTime.now().toString());
 
-        // ✨ أهم شي هنا: نستخدم الدوال الموجودة في Invoice فقط
-        invoice.setAmount(totalAmount); // نخزن total فقط
-        invoice.setDate(java.time.LocalDateTime.now().toString());
-        
-        int invoiceId = InvoiceDAO.insert(invoice);
-        
-        if (invoiceId > 0) {
-            JOptionPane.showMessageDialog(this, 
-                "Invoice saved successfully. ID: " + invoiceId);
-            
-            // show invoice screen
-            new InvoiceViewScreen((JFrame) getParent(), selectedItem.split(" - ")[0])
-                    .setVisible(true);
-        } else {
-            JOptionPane.showMessageDialog(this, 
-                "Error while saving invoice.", 
-                "Error", 
-                JOptionPane.ERROR_MESSAGE);
-        }
+        int invoiceId = InvoiceDAO.insert(inv);
+        if (invoiceId > 0)
+            JOptionPane.showMessageDialog(this, "Invoice saved. ID: " + invoiceId);
     }
-    
+
     private void completeCheckout() {
-        if (cmbReservations.getSelectedIndex() == -1) {
-            JOptionPane.showMessageDialog(this, "Please select a reservation first.");
-            return;
-        }
-        
-        int confirm = JOptionPane.showConfirmDialog(
-            this,
-            "Complete check-out for selected reservation?\n" +
-            "This will update room and reservation status.",
-            "Confirm Check-Out",
-            JOptionPane.YES_NO_OPTION,
-            JOptionPane.QUESTION_MESSAGE
-        );
-        
-        if (confirm == JOptionPane.YES_OPTION) {
-            // later: call PaymentDAO + RoomDAO + ReservationDAO
-            JOptionPane.showMessageDialog(this, 
-                "Check-Out completed successfully!\n" +
-                "Room status will be set to 'Cleaning Required'.",
-                "Success",
-                JOptionPane.INFORMATION_MESSAGE);
-            
+        if (cmbReservations.getSelectedIndex() == -1) return;
+
+        int id = parseReservationId(cmbReservations.getSelectedItem().toString());
+        Reservation r = reservationDAO.getReservationById(id);
+        if (r == null) return;
+
+        boolean ok1 = reservationDAO.updateStatus(id, "CHECKED_OUT");
+        boolean ok2 = roomDAO.updateRoomStatus(r.getRoomId(), "Cleaning Required");
+
+        if (ok1 && ok2) {
+            JOptionPane.showMessageDialog(this, "Check-Out completed successfully.");
+            loadCheckedInReservations();
             dispose();
         }
     }
