@@ -41,12 +41,12 @@ public class ManagerDashboard extends JFrame {
         JButton logout = new JButton("Logout");
         logout.setBounds(135, 270, 180, 30);
 
-        styleButton(manageRooms,        new Color(70, 130, 180));
-        styleButton(manageRoomTypes,    new Color(40, 167, 69));
-        styleButton(roomStatus,         new Color(111, 66, 193));
+        styleButton(manageRooms, new Color(70, 130, 180));
+        styleButton(manageRoomTypes, new Color(40, 167, 69));
+        styleButton(roomStatus, new Color(111, 66, 193));
         styleButton(reservationsReport, new Color(255, 193, 7));
-        styleButton(incomeReport,       new Color(23, 162, 184));
-        styleButton(logout,             new Color(108, 117, 125));
+        styleButton(incomeReport, new Color(23, 162, 184));
+        styleButton(logout, new Color(108, 117, 125));
 
         manageRooms.addActionListener(e -> openManageRooms());
         manageRoomTypes.addActionListener(e -> openManageRoomTypes());

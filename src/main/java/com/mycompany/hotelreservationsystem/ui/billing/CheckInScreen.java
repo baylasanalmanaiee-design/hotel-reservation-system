@@ -15,58 +15,47 @@ import java.sql.ResultSet;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class CheckInScreen extends JDialog {
 
     private JComboBox<String> cmbReservations;
-    private JTextField txtGuestId;
-    private JTextField txtDeposit;
     private JTextArea txtReservationDetails;
-    private JButton btnConfirm;
-    private JButton btnCancel;
+    private JButton btnConfirm, btnCancel;
 
-    private final ReservationDAO reservationDAO = new ReservationDAO(); // نستخدمه فقط لـ getReservationById + updateStatus
+    private final ReservationDAO reservationDAO = new ReservationDAO();
     private final RoomDAO roomDAO = new RoomDAO();
     private final GuestDAO guestDAO = new GuestDAO();
 
+    private final Map<Integer, String> reservationStatusMap = new HashMap<>();
+
     public CheckInScreen(JFrame parent) {
         super(parent, "Check-In Guest", true);
-        setSize(600, 500);
+        setSize(650, 480);
         setLocationRelativeTo(parent);
 
         JPanel mainPanel = new JPanel(new BorderLayout(10, 10));
         mainPanel.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
 
-        JPanel selectionPanel = createSelectionPanel();
-        JPanel detailsPanel = createDetailsPanel();
-        JPanel buttonPanel = createButtonPanel();
-
-        mainPanel.add(selectionPanel, BorderLayout.NORTH);
-        mainPanel.add(detailsPanel, BorderLayout.CENTER);
-        mainPanel.add(buttonPanel, BorderLayout.SOUTH);
+        mainPanel.add(createSelectionPanel(), BorderLayout.NORTH);
+        mainPanel.add(createDetailsPanel(), BorderLayout.CENTER);
+        mainPanel.add(createButtonPanel(), BorderLayout.SOUTH);
 
         add(mainPanel);
 
-        loadReservationsFromDB();
-        addReservationChangeListener();
+        loadAllReservationsFromDB();
+        cmbReservations.addActionListener(e -> updateReservationDetails());
     }
 
     private JPanel createSelectionPanel() {
-        JPanel panel = new JPanel(new GridLayout(3, 2, 10, 10));
+        JPanel panel = new JPanel(new GridLayout(1, 2, 10, 10));
         panel.setBorder(BorderFactory.createTitledBorder("Select Reservation"));
 
-        panel.add(new JLabel("Reservation (CONFIRMED):"));
+        panel.add(new JLabel("Reservation (All):"));
         cmbReservations = new JComboBox<>();
         panel.add(cmbReservations);
-
-        panel.add(new JLabel("Guest ID / Passport:"));
-        txtGuestId = new JTextField();
-        panel.add(txtGuestId);
-
-        panel.add(new JLabel("Deposit Amount:"));
-        txtDeposit = new JTextField();
-        panel.add(txtDeposit);
 
         return panel;
     }
@@ -75,14 +64,11 @@ public class CheckInScreen extends JDialog {
         JPanel panel = new JPanel(new BorderLayout());
         panel.setBorder(BorderFactory.createTitledBorder("Reservation Details"));
 
-        txtReservationDetails = new JTextArea(10, 40);
+        txtReservationDetails = new JTextArea(12, 45);
         txtReservationDetails.setEditable(false);
         txtReservationDetails.setFont(new Font("Monospaced", Font.PLAIN, 12));
-        txtReservationDetails.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
-        JScrollPane scroll = new JScrollPane(txtReservationDetails);
-        panel.add(scroll, BorderLayout.CENTER);
-
+        panel.add(new JScrollPane(txtReservationDetails), BorderLayout.CENTER);
         return panel;
     }
 
@@ -106,17 +92,20 @@ public class CheckInScreen extends JDialog {
         return panel;
     }
 
-    // ==========================
-    // ✅ Load CONFIRMED reservations directly from DB
-    // ==========================
-    private void loadReservationsFromDB() {
+    private void loadAllReservationsFromDB() {
         cmbReservations.removeAllItems();
+        reservationStatusMap.clear();
 
-        List<Reservation> list = getConfirmedReservationsFromDB();
+        List<ReservationRow> list = getAllReservationsFromDB();
 
-        for (Reservation r : list) {
-            // نخزن الـ ID الحقيقي في بداية النص عشان نطلّعه بسهولة
-            String item = r.getId() + " | Guest " + r.getGuestId() + " | Room " + r.getRoomId();
+        for (ReservationRow rr : list) {
+            reservationStatusMap.put(rr.reservationId, rr.status);
+
+            String item = "RES" + String.format("%03d", rr.reservationId)
+                    + " | " + rr.status
+                    + " | Guest " + rr.guestId
+                    + " | Room " + rr.roomId;
+
             cmbReservations.addItem(item);
         }
 
@@ -124,22 +113,16 @@ public class CheckInScreen extends JDialog {
             cmbReservations.setSelectedIndex(0);
             updateReservationDetails();
         } else {
-            txtReservationDetails.setText("No CONFIRMED reservations found.");
+            txtReservationDetails.setText("No reservations found in database.");
         }
     }
 
-    private void addReservationChangeListener() {
-        cmbReservations.addActionListener(e -> updateReservationDetails());
-    }
-
-    // نجيب قائمة الحجوزات المؤكدة من DB بدون ما نعدل ReservationDAO
-    private List<Reservation> getConfirmedReservationsFromDB() {
-        List<Reservation> list = new ArrayList<>();
+    private List<ReservationRow> getAllReservationsFromDB() {
+        List<ReservationRow> list = new ArrayList<>();
 
         String sql = """
-            SELECT reservation_id, guest_id, room_id, check_in_date, check_out_date, total_price
+            SELECT reservation_id, guest_id, room_id, check_in_date, check_out_date, total_price, status
             FROM reservations
-            WHERE status = 'CONFIRMED'
             ORDER BY reservation_id DESC
         """;
 
@@ -148,19 +131,19 @@ public class CheckInScreen extends JDialog {
              ResultSet rs = stmt.executeQuery()) {
 
             while (rs.next()) {
-                Reservation r = new Reservation(
-                        rs.getInt("reservation_id"),
-                        rs.getInt("guest_id"),
-                        rs.getInt("room_id"),
-                        rs.getString("check_in_date"),
-                        rs.getString("check_out_date"),
-                        rs.getDouble("total_price")
-                );
-                list.add(r);
+                ReservationRow rr = new ReservationRow();
+                rr.reservationId = rs.getInt("reservation_id");
+                rr.guestId = rs.getInt("guest_id");
+                rr.roomId = rs.getInt("room_id");
+                rr.checkIn = rs.getString("check_in_date");
+                rr.checkOut = rs.getString("check_out_date");
+                rr.total = rs.getDouble("total_price");
+                rr.status = rs.getString("status");
+                if (rr.status == null) rr.status = "";
+                list.add(rr);
             }
 
         } catch (Exception e) {
-            e.printStackTrace();
             JOptionPane.showMessageDialog(this,
                     "Error loading reservations: " + e.getMessage(),
                     "DB Error",
@@ -170,35 +153,28 @@ public class CheckInScreen extends JDialog {
         return list;
     }
 
-    // يقرأ الرقم قبل | (مثال: "12 | Guest 3 | Room 5")
     private int parseReservationId(String comboText) {
-        if (comboText == null) return 0;
-        String[] parts = comboText.split("\\|");
         try {
-            return Integer.parseInt(parts[0].trim());
+            String code = comboText.split("\\|")[0].trim(); // "RES001"
+            return Integer.parseInt(code.substring(3));
         } catch (Exception e) {
             return 0;
         }
     }
 
     private void updateReservationDetails() {
-        String selected = (String) cmbReservations.getSelectedItem();
-        if (selected == null) {
-            txtReservationDetails.setText("");
-            return;
-        }
+        if (cmbReservations.getSelectedItem() == null) return;
 
-        int reservationId = parseReservationId(selected);
-        if (reservationId <= 0) {
-            txtReservationDetails.setText("");
-            return;
-        }
+        int reservationId = parseReservationId(cmbReservations.getSelectedItem().toString());
+        if (reservationId <= 0) return;
 
         Reservation r = reservationDAO.getReservationById(reservationId);
         if (r == null) {
             txtReservationDetails.setText("");
             return;
         }
+
+        String status = reservationStatusMap.getOrDefault(reservationId, "");
 
         Guest g = guestDAO.getGuestById(r.getGuestId());
         String guestName = (g != null && g.getFullName() != null && !g.getFullName().isBlank())
@@ -207,43 +183,63 @@ public class CheckInScreen extends JDialog {
 
         long nights;
         try {
-            LocalDate in = LocalDate.parse(r.getCheckInDate());
-            LocalDate out = LocalDate.parse(r.getCheckOutDate());
-            nights = ChronoUnit.DAYS.between(in, out);
-            if (nights < 0) nights = 0;
-        } catch (Exception ignored) {
+            nights = Math.max(0, ChronoUnit.DAYS.between(
+                    LocalDate.parse(r.getCheckInDate()),
+                    LocalDate.parse(r.getCheckOutDate())
+            ));
+        } catch (Exception ex) {
             nights = 0;
         }
 
         StringBuilder sb = new StringBuilder();
-        sb.append("Reservation ID : ").append(r.getId()).append("\n");
-        sb.append("Guest          : ").append(guestName).append(" (Guest ID ").append(r.getGuestId()).append(")\n");
+        sb.append("Reservation ID : RES").append(String.format("%03d", r.getId())).append("\n");
+        sb.append("Status         : ").append(status).append("\n");
+        sb.append("Guest          : ").append(guestName).append(" (ID ").append(r.getGuestId()).append(")\n");
         sb.append("Room ID        : ").append(r.getRoomId()).append("\n");
         sb.append("----------------------------------------\n");
         sb.append("Check-In Date  : ").append(r.getCheckInDate()).append("\n");
         sb.append("Check-Out Date : ").append(r.getCheckOutDate()).append("\n");
         sb.append("Nights         : ").append(nights).append("\n");
-        sb.append("Status         : CONFIRMED").append("\n");
         sb.append("Total Price    : ").append(r.getTotalPrice()).append("\n");
+
+        if (isStatusAllowedForCheckIn(status)) {
+            sb.append("\n✅ This reservation is eligible for Check-In.");
+        } else {
+            sb.append("\n❌ This reservation is NOT eligible for Check-In.");
+        }
 
         txtReservationDetails.setText(sb.toString());
     }
 
-    private void confirmCheckIn() {
-        if (!validateInput()) return;
+    private boolean isStatusAllowedForCheckIn(String status) {
+        String s = status == null ? "" : status.trim().toUpperCase();
+        return !s.equals("CHECKED_IN") && !s.equals("CHECKED_OUT") && !s.equals("CANCELLED");
+    }
 
-        int answer = JOptionPane.showConfirmDialog(
+    private void confirmCheckIn() {
+        if (cmbReservations.getSelectedIndex() == -1) {
+            JOptionPane.showMessageDialog(this, "Please select a reservation.");
+            return;
+        }
+
+        int reservationId = parseReservationId(cmbReservations.getSelectedItem().toString());
+        String status = reservationStatusMap.getOrDefault(reservationId, "");
+
+        if (!isStatusAllowedForCheckIn(status)) {
+            JOptionPane.showMessageDialog(this,
+                    "You cannot Check-In this reservation.\nCurrent Status: " + status,
+                    "Not Allowed",
+                    JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        int confirm = JOptionPane.showConfirmDialog(
                 this,
                 "Confirm check-in for this reservation?",
                 "Confirm Check-In",
-                JOptionPane.YES_NO_OPTION,
-                JOptionPane.QUESTION_MESSAGE
+                JOptionPane.YES_NO_OPTION
         );
-
-        if (answer != JOptionPane.YES_OPTION) return;
-
-        String selected = (String) cmbReservations.getSelectedItem();
-        int reservationId = parseReservationId(selected);
+        if (confirm != JOptionPane.YES_OPTION) return;
 
         Reservation r = reservationDAO.getReservationById(reservationId);
         if (r == null) {
@@ -251,71 +247,28 @@ public class CheckInScreen extends JDialog {
             return;
         }
 
-        // ✅ تحديث حالة الحجز باستخدام DAO الأصلي
         boolean ok1 = reservationDAO.updateStatus(reservationId, "CHECKED_IN");
-
-        // ✅ تحديث حالة الغرفة (لازم توافق قيم rooms.status عندكم)
-        // عندكم غالبًا: Available / Occupied / Cleaning Required / Maintenance
-        boolean ok2 = roomDAO.updateRoomStatus(r.getRoomId(), "Occupied");
+        boolean ok2 = roomDAO.updateRoomStatusById(r.getRoomId(), "Occupied");
 
         if (ok1 && ok2) {
-            JOptionPane.showMessageDialog(
-                    this,
-                    "Check-In completed successfully.\nReservation status -> CHECKED_IN\nRoom status -> Occupied",
-                    "Check-In Done",
-                    JOptionPane.INFORMATION_MESSAGE
-            );
-
-            // ملاحظة: الآن deposit فقط validated ومكتوب في UI
-            // حفظه في payments/invoices بيجي في الخطوة الجاية
-
-            loadReservationsFromDB();
+            JOptionPane.showMessageDialog(this, "Check-In completed successfully.");
+            loadAllReservationsFromDB();
             dispose();
         } else {
-            JOptionPane.showMessageDialog(
-                    this,
-                    "Check-In failed (could not update reservation/room).",
+            JOptionPane.showMessageDialog(this,
+                    "Check-In failed.\nReservation updated: " + ok1 + "\nRoom updated: " + ok2,
                     "Error",
-                    JOptionPane.ERROR_MESSAGE
-            );
+                    JOptionPane.ERROR_MESSAGE);
         }
     }
 
-    private boolean validateInput() {
-        if (cmbReservations.getSelectedIndex() == -1) {
-            JOptionPane.showMessageDialog(this, "Please select a reservation.");
-            return false;
-        }
-
-        String id = txtGuestId.getText().trim();
-        if (id.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Please enter guest ID / passport.");
-            return false;
-        }
-
-        String depositText = txtDeposit.getText().trim();
-        if (depositText.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Please enter deposit amount (0 if none).");
-            return false;
-        }
-
-        try {
-            double deposit = Double.parseDouble(depositText);
-            if (deposit < 0) {
-                JOptionPane.showMessageDialog(this, "Deposit cannot be negative.");
-                return false;
-            }
-        } catch (NumberFormatException ex) {
-            JOptionPane.showMessageDialog(this, "Deposit must be a numeric value.");
-            return false;
-        }
-
-        return true;
-    }
-
-    public static void main(String[] args) {
-        JFrame frame = new JFrame();
-        CheckInScreen screen = new CheckInScreen(frame);
-        screen.setVisible(true);
+    private static class ReservationRow {
+        int reservationId;
+        int guestId;
+        int roomId;
+        String checkIn;
+        String checkOut;
+        double total;
+        String status;
     }
 }

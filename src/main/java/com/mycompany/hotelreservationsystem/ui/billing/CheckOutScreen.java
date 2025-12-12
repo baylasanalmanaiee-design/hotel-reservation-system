@@ -2,18 +2,16 @@ package com.mycompany.hotelreservationsystem.ui.billing;
 
 import com.mycompany.hotelreservationsystem.DatabaseConnection;
 import com.mycompany.hotelreservationsystem.dao.DiscountDAO;
-import com.mycompany.hotelreservationsystem.dao.InvoiceDAO;
 import com.mycompany.hotelreservationsystem.dao.ReservationDAO;
-import com.mycompany.hotelreservationsystem.dao.RoomDAO;
-import com.mycompany.hotelreservationsystem.model.Invoice;
 import com.mycompany.hotelreservationsystem.model.Reservation;
 
 import javax.swing.*;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
 import javax.swing.table.DefaultTableModel;
+import javax.swing.text.JTextComponent;
 import java.awt.*;
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
+import java.sql.*;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
@@ -29,7 +27,6 @@ public class CheckOutScreen extends JDialog {
     private DefaultTableModel tableModel;
 
     private final ReservationDAO reservationDAO = new ReservationDAO();
-    private final RoomDAO roomDAO = new RoomDAO();
     private final DiscountDAO discountDAO = new DiscountDAO();
 
     private static final double TAX_RATE = 0.10;
@@ -37,7 +34,7 @@ public class CheckOutScreen extends JDialog {
 
     public CheckOutScreen(JFrame parent) {
         super(parent, "Check-Out", true);
-        setSize(800, 600);
+        setSize(850, 650);
         setLocationRelativeTo(parent);
         initializeComponents();
     }
@@ -62,8 +59,9 @@ public class CheckOutScreen extends JDialog {
 
         JPanel top = new JPanel(new FlowLayout(FlowLayout.LEFT));
         top.add(new JLabel("Reservation (CHECKED_IN):"));
+
         cmbReservations = new JComboBox<>();
-        cmbReservations.setPreferredSize(new Dimension(360, 25));
+        cmbReservations.setPreferredSize(new Dimension(420, 25));
         top.add(cmbReservations);
 
         JPanel bottom = new JPanel(new GridLayout(1, 4, 10, 10));
@@ -79,7 +77,6 @@ public class CheckOutScreen extends JDialog {
 
         panel.add(top);
         panel.add(bottom);
-
         return panel;
     }
 
@@ -99,7 +96,10 @@ public class CheckOutScreen extends JDialog {
         tablePanel.setBorder(BorderFactory.createTitledBorder("Charges Breakdown"));
         tablePanel.add(tableScroll, BorderLayout.CENTER);
 
-        txtExtraServices = new JTextArea(3, 40);
+        txtExtraServices = new JTextArea(5, 40);
+        txtExtraServices.setLineWrap(true);
+        txtExtraServices.setWrapStyleWord(true);
+
         JScrollPane servicesScroll = new JScrollPane(txtExtraServices);
         JPanel servicesPanel = new JPanel(new BorderLayout());
         servicesPanel.setBorder(BorderFactory.createTitledBorder("Extra Services"));
@@ -109,6 +109,7 @@ public class CheckOutScreen extends JDialog {
         discountPanel.add(new JLabel("Discount Code:"));
         txtDiscount = new JTextField();
         discountPanel.add(txtDiscount);
+
         discountPanel.add(new JLabel("Late Penalty:"));
         txtPenalty = new JTextField("0.00");
         discountPanel.add(txtPenalty);
@@ -120,7 +121,6 @@ public class CheckOutScreen extends JDialog {
         south.add(servicesPanel, BorderLayout.SOUTH);
 
         panel.add(south, BorderLayout.SOUTH);
-
         return panel;
     }
 
@@ -144,8 +144,17 @@ public class CheckOutScreen extends JDialog {
 
     private void addListeners() {
         cmbReservations.addActionListener(e -> updateCharges());
-        txtDiscount.addActionListener(e -> updateCharges());
-        txtPenalty.addActionListener(e -> updateCharges());
+        addAutoUpdate(txtDiscount);
+        addAutoUpdate(txtPenalty);
+        addAutoUpdate(txtExtraServices);
+    }
+
+    private void addAutoUpdate(JTextComponent comp) {
+        comp.getDocument().addDocumentListener(new DocumentListener() {
+            @Override public void insertUpdate(DocumentEvent e) { updateCharges(); }
+            @Override public void removeUpdate(DocumentEvent e) { updateCharges(); }
+            @Override public void changedUpdate(DocumentEvent e) { updateCharges(); }
+        });
     }
 
     private void loadCheckedInReservations() {
@@ -165,11 +174,12 @@ public class CheckOutScreen extends JDialog {
             SELECT reservation_id, guest_id, room_id, check_in_date, check_out_date, total_price
             FROM reservations
             WHERE status = 'CHECKED_IN'
-            ORDER BY reservation_id DESC
         """;
+
         try (Connection c = DatabaseConnection.getConnection();
              PreparedStatement s = c.prepareStatement(sql);
              ResultSet r = s.executeQuery()) {
+
             while (r.next()) {
                 list.add(new Reservation(
                         r.getInt("reservation_id"),
@@ -180,16 +190,15 @@ public class CheckOutScreen extends JDialog {
                         r.getDouble("total_price")
                 ));
             }
-        } catch (Exception ignored) {}
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        }
         return list;
     }
 
     private int parseReservationId(String text) {
-        try {
-            return Integer.parseInt(text.split("\\|")[0].trim());
-        } catch (Exception e) {
-            return 0;
-        }
+        try { return Integer.parseInt(text.split("\\|")[0].trim()); }
+        catch (Exception e) { return 0; }
     }
 
     private void updateCharges() {
@@ -201,25 +210,34 @@ public class CheckOutScreen extends JDialog {
         if (r == null) return;
 
         long nights = calculateNights(r.getCheckInDate(), r.getCheckOutDate());
-        double price = getRoomPricePerNight(r.getRoomId());
+        double roomPrice = getRoomPricePerNight(r.getRoomId());
 
         txtNights.setText(String.valueOf(nights));
-        txtRoomPrice.setText(String.format("$%.2f", price));
+        txtRoomPrice.setText(money(roomPrice));
 
-        double roomTotal = nights * price;
-        double tax = roomTotal * TAX_RATE;
+        double roomTotal = nights * roomPrice;
+        List<ServiceLine> services = parseServices(txtExtraServices.getText());
+        double servicesTotal = services.stream().mapToDouble(x -> x.amount).sum();
+
+        double tax = (roomTotal + servicesTotal) * TAX_RATE;
         double penalty = parseDouble(txtPenalty.getText());
 
         tableModel.addRow(new Object[]{"Room Charges", money(roomTotal)});
+
+        for (ServiceLine s : services) {
+            tableModel.addRow(new Object[]{"Extra: " + s.name, money(s.amount)});
+        }
+
         tableModel.addRow(new Object[]{"Tax", money(tax)});
         tableModel.addRow(new Object[]{"Service Fee", money(SERVICE_FEE)});
 
-        double subtotal = roomTotal + tax + SERVICE_FEE + penalty;
+        if (penalty > 0) {
+            tableModel.addRow(new Object[]{"Late Penalty", money(penalty)});
+        }
 
-        double discountPct = txtDiscount.getText().isBlank() ? 0.0 :
-                discountDAO.getPercentageIfValid(txtDiscount.getText().trim());
-
-        double discount = subtotal * (discountPct / 100.0);
+        double subtotal = roomTotal + servicesTotal + tax + SERVICE_FEE + penalty;
+        double discountPct = txtDiscount.getText().isBlank() ? 0.0 : discountDAO.getPercentageIfValid(txtDiscount.getText().trim());
+        double discount = (roomTotal + servicesTotal) * (discountPct / 100.0);
         double total = subtotal - discount;
 
         tableModel.addRow(new Object[]{"SUBTOTAL", money(subtotal)});
@@ -229,9 +247,10 @@ public class CheckOutScreen extends JDialog {
 
     private long calculateNights(String in, String out) {
         try {
-            return Math.max(0, ChronoUnit.DAYS.between(LocalDate.parse(in), LocalDate.parse(out)));
+            long n = ChronoUnit.DAYS.between(LocalDate.parse(in), LocalDate.parse(out));
+            return Math.max(1, n);
         } catch (Exception e) {
-            return 0;
+            return 1;
         }
     }
 
@@ -242,12 +261,17 @@ public class CheckOutScreen extends JDialog {
             JOIN room_types rt ON r.type_id = rt.type_id
             WHERE r.room_id = ?
         """;
+
         try (Connection c = DatabaseConnection.getConnection();
              PreparedStatement s = c.prepareStatement(sql)) {
+
             s.setInt(1, roomId);
-            ResultSet r = s.executeQuery();
-            if (r.next()) return r.getDouble("base_price");
-        } catch (Exception ignored) {}
+            try (ResultSet r = s.executeQuery()) {
+                if (r.next()) return r.getDouble("base_price");
+            }
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        }
         return 0.0;
     }
 
@@ -263,45 +287,95 @@ public class CheckOutScreen extends JDialog {
         return String.format("$%.2f", v);
     }
 
-    private double getAmountFromRow(String label) {
-        for (int i = 0; i < tableModel.getRowCount(); i++) {
-            if (label.equals(tableModel.getValueAt(i, 0))) {
-                return parseDouble(tableModel.getValueAt(i, 1).toString());
-            }
-        }
-        return 0.0;
-    }
-
     private void generateInvoice() {
         if (cmbReservations.getSelectedIndex() == -1) return;
 
-        int id = parseReservationId(cmbReservations.getSelectedItem().toString());
-        double total = getAmountFromRow("TOTAL AMOUNT");
+        int reservationId = parseReservationId(cmbReservations.getSelectedItem().toString());
+        double total = parseDouble(getAmountFromRow("TOTAL AMOUNT"));
 
-        Invoice inv = new Invoice();
-        inv.setReservationId(id);
-        inv.setAmount(total);
-        inv.setDate(java.time.LocalDateTime.now().toString());
+        try (Connection c = DatabaseConnection.getConnection();
+             PreparedStatement s = c.prepareStatement(
+                     "INSERT INTO invoices (reservation_id, amount, date) VALUES (?, ?, ?)",
+                     Statement.RETURN_GENERATED_KEYS)) {
 
-        int invoiceId = InvoiceDAO.insert(inv);
-        if (invoiceId > 0)
-            JOptionPane.showMessageDialog(this, "Invoice saved. ID: " + invoiceId);
+            s.setInt(1, reservationId);
+            s.setDouble(2, total);
+            s.setString(3, java.time.LocalDateTime.now().toString());
+            s.executeUpdate();
+
+            try (ResultSet r = s.getGeneratedKeys()) {
+                if (r.next()) {
+                    JOptionPane.showMessageDialog(this, "Invoice saved. ID: " + r.getInt(1));
+                }
+            }
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        }
+    }
+
+    private String getAmountFromRow(String label) {
+        for (int i = 0; i < tableModel.getRowCount(); i++) {
+            if (label.equals(tableModel.getValueAt(i, 0))) {
+                return tableModel.getValueAt(i, 1).toString();
+            }
+        }
+        return "0";
     }
 
     private void completeCheckout() {
         if (cmbReservations.getSelectedIndex() == -1) return;
 
-        int id = parseReservationId(cmbReservations.getSelectedItem().toString());
-        Reservation r = reservationDAO.getReservationById(id);
+        int reservationId = parseReservationId(cmbReservations.getSelectedItem().toString());
+        Reservation r = reservationDAO.getReservationById(reservationId);
         if (r == null) return;
 
-        boolean ok1 = reservationDAO.updateStatus(id, "CHECKED_OUT");
-        boolean ok2 = roomDAO.updateRoomStatus(r.getRoomId(), "Cleaning Required");
+        try (Connection c = DatabaseConnection.getConnection()) {
+            c.setAutoCommit(false);
 
-        if (ok1 && ok2) {
-            JOptionPane.showMessageDialog(this, "Check-Out completed successfully.");
-            loadCheckedInReservations();
-            dispose();
+            try (PreparedStatement s1 = c.prepareStatement(
+                    "UPDATE reservations SET status='CHECKED_OUT' WHERE reservation_id=?");
+                 PreparedStatement s2 = c.prepareStatement(
+                         "UPDATE rooms SET status='Cleaning Required' WHERE room_id=?")) {
+
+                s1.setInt(1, reservationId);
+                s2.setInt(1, r.getRoomId());
+
+                s1.executeUpdate();
+                s2.executeUpdate();
+
+                c.commit();
+                JOptionPane.showMessageDialog(this, "Check-Out completed successfully.");
+                loadCheckedInReservations();
+                dispose();
+            } catch (Exception ex) {
+                c.rollback();
+                ex.printStackTrace();
+            }
+        } catch (Exception ex) {
+            ex.printStackTrace();
         }
+    }
+
+    private static class ServiceLine {
+        String name;
+        double amount;
+        ServiceLine(String n, double a) {
+            name = n;
+            amount = a;
+        }
+    }
+
+    private List<ServiceLine> parseServices(String text) {
+        List<ServiceLine> list = new ArrayList<>();
+        if (text == null || text.isBlank()) return list;
+
+        for (String line : text.split("\\r?\\n")) {
+            String[] p = line.split("[:=\\-]", 2);
+            if (p.length == 2) {
+                double a = parseDouble(p[1]);
+                if (a > 0) list.add(new ServiceLine(p[0].trim(), a));
+            }
+        }
+        return list;
     }
 }
