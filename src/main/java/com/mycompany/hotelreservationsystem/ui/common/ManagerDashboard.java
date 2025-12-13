@@ -1,4 +1,5 @@
 package com.mycompany.hotelreservationsystem.ui.common;
+import com.mycompany.hotelreservationsystem.ui.common.ReservationsReportScreen;
 
 import javax.swing.*;
 import java.awt.*;
@@ -110,9 +111,9 @@ public class ManagerDashboard extends JFrame {
     }
 
     private void openReservationsReport() {
-        ManageReservationsScreen screen = new ManageReservationsScreen(this);
-        screen.setVisible(true);
+        new ReservationsReportScreen(this).setVisible(true);
     }
+
 
     private void openIncomeReport() {
         IncomeReportScreen screen = new IncomeReportScreen(this);

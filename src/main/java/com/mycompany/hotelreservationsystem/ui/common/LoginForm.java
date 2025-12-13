@@ -75,6 +75,12 @@ public class LoginForm extends JFrame{
 
         // لو موجود - نفتح الداشبورد حسب الدور (role)
         JOptionPane.showMessageDialog(this, "Welcome " + user.getUsername());
+        // ✅ حفظ المستخدم الحالي في السيشن
+        com.mycompany.hotelreservationsystem.util.Session.currentUserId = user.getId();
+        com.mycompany.hotelreservationsystem.dao.ActivityLogDAO.log(
+        com.mycompany.hotelreservationsystem.util.Session.currentUserId,
+        "LOGIN"
+);
 
         if (user.getRole().equalsIgnoreCase("manager")) {
             new ManagerDashboard().setVisible(true);

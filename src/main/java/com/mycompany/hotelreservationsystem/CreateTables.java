@@ -23,8 +23,7 @@ public class CreateTables {
         createPaymentsTable();
         ///////waitlist
         createWaitlistTable();
-        
-        
+        activity_logs();
         /////
         migrateReservationsAddTotalPrice();
     }
@@ -191,7 +190,17 @@ private static void migrateReservationsAddTotalPrice() {
     execute(sql, "waitlist");
 }
 
-
+    private static void activity_logs() {
+    String sql = """
+        CREATE TABLE IF NOT EXISTS activity_logs (
+            log_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            action TEXT NOT NULL,
+            action_time TEXT NOT NULL
+        );
+        """;
+    execute(sql, "activity_logs");
+}
     private static void execute(String sql, String tableName) {
         try (Connection conn = DatabaseConnection.getConnection();
              Statement stmt = conn.createStatement()) {
@@ -204,5 +213,6 @@ private static void migrateReservationsAddTotalPrice() {
             e.printStackTrace();
         }
     }
+    
 }
 

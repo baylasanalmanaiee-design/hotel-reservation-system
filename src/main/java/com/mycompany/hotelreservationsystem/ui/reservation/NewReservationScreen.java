@@ -8,8 +8,8 @@ package com.mycompany.hotelreservationsystem.ui.reservation;
  *
  * @author Bilsan
  */
-
-
+import com.mycompany.hotelreservationsystem.util.Session;
+import com.mycompany.hotelreservationsystem.dao.ActivityLogDAO;
 import com.mycompany.hotelreservationsystem.dao.GuestDAO;
 import com.mycompany.hotelreservationsystem.dao.ReservationDAO;
 import com.mycompany.hotelreservationsystem.dao.RoomDAO;
@@ -355,6 +355,7 @@ public class NewReservationScreen extends JDialog {
         if (reservationDAO.createReservation(r)) {
             JOptionPane.showMessageDialog(this,
                     "Reservation Created Successfully!\nTotal: " + totalPrice + " SR");
+                    ActivityLogDAO.log(Session.currentUserId, "Created new reservation" );
 
             dispose();
         } else {
