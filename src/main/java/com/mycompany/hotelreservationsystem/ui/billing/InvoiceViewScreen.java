@@ -15,7 +15,6 @@ public class InvoiceViewScreen extends JDialog {
     private JLabel lblInvoiceId;
     private JLabel lblReservation;
     private JLabel lblDate;
-
     private JLabel lblTotal;
     private JLabel lblPaid;
     private JLabel lblBalance;
@@ -49,6 +48,9 @@ public class InvoiceViewScreen extends JDialog {
         lblInvoiceId = new JLabel("-");
         lblReservation = new JLabel("-");
         lblDate = new JLabel("-");
+        lblTotal = new JLabel("-");
+        lblPaid = new JLabel("-");
+        lblBalance = new JLabel("-");
 
         header.add(new JLabel("Invoice ID:"));
         header.add(lblInvoiceId);
@@ -60,10 +62,6 @@ public class InvoiceViewScreen extends JDialog {
         // ===== Totals =====
         JPanel totals = new JPanel(new GridLayout(1, 6, 10, 8));
         totals.setBorder(BorderFactory.createTitledBorder("Totals"));
-
-        lblTotal = new JLabel("-");
-        lblPaid = new JLabel("-");
-        lblBalance = new JLabel("-");
 
         totals.add(new JLabel("Total:"));
         totals.add(lblTotal);
@@ -80,6 +78,7 @@ public class InvoiceViewScreen extends JDialog {
         paymentsModel = new DefaultTableModel(new String[]{"Payment ID", "Amount", "Method", "Paid At"}, 0) {
             @Override public boolean isCellEditable(int row, int column) { return false; }
         };
+
         paymentsTable = new JTable(paymentsModel);
         paymentsTable.setRowHeight(24);
 
@@ -107,7 +106,6 @@ public class InvoiceViewScreen extends JDialog {
         btnAddPayment.addActionListener(e -> addPayment());
         btnClose.addActionListener(e -> dispose());
 
-        // ===== Layout =====
         main.add(top, BorderLayout.NORTH);
         main.add(center, BorderLayout.CENTER);
         main.add(payPanel, BorderLayout.SOUTH);
@@ -117,21 +115,19 @@ public class InvoiceViewScreen extends JDialog {
 
     private int parseReservationId(String reservationCode) {
         if (reservationCode == null) return 0;
-
         String code = reservationCode.trim();
 
-        // لو جاك مثل: RES005 أو RES005 | Guest ...
-        if (code.toUpperCase().startsWith("RES")) {
+        // RES001 -> 1
+        if (code.startsWith("RES")) {
             String num = code.substring(3).replaceAll("\\D+", "");
-            if (!num.isEmpty()) {
-                try { return Integer.parseInt(num); } catch (NumberFormatException ignored) {}
-            }
+            if (num.isEmpty()) return 0;
+            try { return Integer.parseInt(num); }
+            catch (NumberFormatException ignored) { return 0; }
         }
 
-        // fallback: أي رقم داخل النص
+        // any digits
         String digits = code.replaceAll("\\D+", "");
         if (digits.isEmpty()) return 0;
-
         try { return Integer.parseInt(digits); }
         catch (NumberFormatException ignored) { return 0; }
     }
@@ -161,7 +157,7 @@ public class InvoiceViewScreen extends JDialog {
 
         lblInvoiceId.setText(String.valueOf(invoice.getId()));
         lblReservation.setText("RES" + String.format("%03d", invoice.getReservationId()));
-        lblDate.setText(invoice.getCreatedAt()); // ✅ created_at
+        lblDate.setText(invoice.getCreatedAt()); // ✅ new field
 
         refreshPayments();
     }
@@ -169,18 +165,17 @@ public class InvoiceViewScreen extends JDialog {
     private void refreshPayments() {
         paymentsModel.setRowCount(0);
 
-        double total = invoice.getTotalAmount(); // ✅ total_amount
+        double total = invoice.getTotalAmount();  // ✅ new field
         double paid = 0.0;
 
         List<Payment> payments = PaymentDAO.getByInvoice(invoice.getId());
         for (Payment p : payments) {
             paid += p.getAmount();
-
             paymentsModel.addRow(new Object[]{
                     p.getId(),
                     String.format("$%.2f", p.getAmount()),
                     p.getMethod(),
-                    p.getPaidAt() // ✅ paid_at
+                    p.getPaidAt() // ✅ new field
             });
         }
 
@@ -221,7 +216,7 @@ public class InvoiceViewScreen extends JDialog {
         p.setInvoiceId(invoice.getId());
         p.setAmount(amt);
         p.setMethod(String.valueOf(cmbPayMethod.getSelectedItem()));
-        p.setPaidAt(java.time.LocalDateTime.now().toString()); // ✅ paid_at
+        p.setPaidAt(java.time.LocalDateTime.now().toString()); // ✅ new field
 
         int newId = PaymentDAO.insert(p);
         if (newId > 0) {

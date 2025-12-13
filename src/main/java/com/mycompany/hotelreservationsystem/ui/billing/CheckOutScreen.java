@@ -3,8 +3,6 @@ package com.mycompany.hotelreservationsystem.ui.billing;
 import com.mycompany.hotelreservationsystem.DatabaseConnection;
 import com.mycompany.hotelreservationsystem.dao.DiscountDAO;
 import com.mycompany.hotelreservationsystem.dao.ReservationDAO;
-import com.mycompany.hotelreservationsystem.dao.InvoiceDAO;
-import com.mycompany.hotelreservationsystem.model.Invoice;
 import com.mycompany.hotelreservationsystem.model.Reservation;
 
 import javax.swing.*;
@@ -15,6 +13,7 @@ import javax.swing.text.JTextComponent;
 import java.awt.*;
 import java.sql.*;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
@@ -24,9 +23,10 @@ public class CheckOutScreen extends JDialog {
     private JComboBox<String> cmbReservations;
     private JTextField txtNights, txtRoomPrice, txtDiscount, txtPenalty;
     private JTextArea txtExtraServices;
-    private JButton btnGenerateInvoice, btnCompleteCheckout, btnCancel;
     private JTable chargesTable;
     private DefaultTableModel tableModel;
+
+    private JButton btnGenerateInvoice, btnCompleteCheckout, btnCancel;
 
     private final ReservationDAO reservationDAO = new ReservationDAO();
     private final DiscountDAO discountDAO = new DiscountDAO();
@@ -34,78 +34,70 @@ public class CheckOutScreen extends JDialog {
     private static final double TAX_RATE = 0.10;
     private static final double SERVICE_FEE = 25.00;
 
+    // cached values
+    private double subtotal = 0;
+    private double discountAmount = 0;
+    private double taxAmount = 0;
+    private double totalAmount = 0;
+
     public CheckOutScreen(JFrame parent) {
         super(parent, "Check-Out", true);
         setSize(850, 650);
         setLocationRelativeTo(parent);
-        initializeComponents();
-    }
-
-    private void initializeComponents() {
-        JPanel mainPanel = new JPanel(new BorderLayout(10, 10));
-        mainPanel.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
-
-        mainPanel.add(createSelectionPanel(), BorderLayout.NORTH);
-        mainPanel.add(createChargesPanel(), BorderLayout.CENTER);
-        mainPanel.add(createButtonPanel(), BorderLayout.SOUTH);
-
-        add(mainPanel);
-
+        initUI();
         loadCheckedInReservations();
         addListeners();
     }
 
-    private JPanel createSelectionPanel() {
-        JPanel panel = new JPanel(new GridLayout(2, 1, 10, 10));
-        panel.setBorder(BorderFactory.createTitledBorder("Select Reservation for Check-Out"));
+    // ================= UI =================
 
-        JPanel top = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        top.add(new JLabel("Reservation (CHECKED_IN):"));
+    private void initUI() {
+        setLayout(new BorderLayout(10, 10));
+        JPanel main = new JPanel(new BorderLayout(10, 10));
+        main.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
+        add(main);
 
+        // --------- Top ---------
+        JPanel top = new JPanel(new GridLayout(2, 1, 10, 10));
+        top.setBorder(BorderFactory.createTitledBorder("Select Reservation"));
+
+        JPanel row1 = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        row1.add(new JLabel("Reservation (CHECKED_IN):"));
         cmbReservations = new JComboBox<>();
         cmbReservations.setPreferredSize(new Dimension(420, 25));
-        top.add(cmbReservations);
+        row1.add(cmbReservations);
 
-        JPanel bottom = new JPanel(new GridLayout(1, 4, 10, 10));
-        bottom.add(new JLabel("Nights:"));
-        txtNights = new JTextField();
-        txtNights.setEditable(false);
-        bottom.add(txtNights);
+        JPanel row2 = new JPanel(new GridLayout(1, 4, 10, 10));
+        row2.add(new JLabel("Nights:"));
+        txtNights = new JTextField(); txtNights.setEditable(false);
+        row2.add(txtNights);
 
-        bottom.add(new JLabel("Room Price/Night:"));
-        txtRoomPrice = new JTextField();
-        txtRoomPrice.setEditable(false);
-        bottom.add(txtRoomPrice);
+        row2.add(new JLabel("Room Price/Night:"));
+        txtRoomPrice = new JTextField(); txtRoomPrice.setEditable(false);
+        row2.add(txtRoomPrice);
 
-        panel.add(top);
-        panel.add(bottom);
-        return panel;
-    }
+        top.add(row1);
+        top.add(row2);
 
-    private JPanel createChargesPanel() {
-        JPanel panel = new JPanel(new BorderLayout(10, 10));
+        main.add(top, BorderLayout.NORTH);
 
-        String[] columns = {"Description", "Amount"};
-        tableModel = new DefaultTableModel(columns, 0) {
+        // --------- Center ---------
+        String[] cols = {"Description", "Amount"};
+        tableModel = new DefaultTableModel(cols, 0) {
             @Override public boolean isCellEditable(int r, int c) { return false; }
         };
-
         chargesTable = new JTable(tableModel);
         chargesTable.setRowHeight(24);
 
         JScrollPane tableScroll = new JScrollPane(chargesTable);
-        JPanel tablePanel = new JPanel(new BorderLayout());
-        tablePanel.setBorder(BorderFactory.createTitledBorder("Charges Breakdown"));
-        tablePanel.add(tableScroll, BorderLayout.CENTER);
+        tableScroll.setBorder(BorderFactory.createTitledBorder("Charges Breakdown"));
 
-        txtExtraServices = new JTextArea(5, 40);
+        txtExtraServices = new JTextArea(4, 40);
         txtExtraServices.setLineWrap(true);
         txtExtraServices.setWrapStyleWord(true);
 
         JScrollPane servicesScroll = new JScrollPane(txtExtraServices);
-        JPanel servicesPanel = new JPanel(new BorderLayout());
-        servicesPanel.setBorder(BorderFactory.createTitledBorder("Extra Services"));
-        servicesPanel.add(servicesScroll, BorderLayout.CENTER);
+        servicesScroll.setBorder(BorderFactory.createTitledBorder("Extra Services (example: Laundry=30)"));
 
         JPanel discountPanel = new JPanel(new GridLayout(1, 4, 10, 10));
         discountPanel.add(new JLabel("Discount Code:"));
@@ -116,19 +108,19 @@ public class CheckOutScreen extends JDialog {
         txtPenalty = new JTextField("0.00");
         discountPanel.add(txtPenalty);
 
-        panel.add(tablePanel, BorderLayout.CENTER);
+        JPanel center = new JPanel(new BorderLayout(10, 10));
+        center.add(tableScroll, BorderLayout.CENTER);
 
-        JPanel south = new JPanel(new BorderLayout());
-        south.add(discountPanel, BorderLayout.NORTH);
-        south.add(servicesPanel, BorderLayout.SOUTH);
+        JPanel southCenter = new JPanel(new BorderLayout());
+        southCenter.add(discountPanel, BorderLayout.NORTH);
+        southCenter.add(servicesScroll, BorderLayout.SOUTH);
 
-        panel.add(south, BorderLayout.SOUTH);
-        return panel;
-    }
+        center.add(southCenter, BorderLayout.SOUTH);
 
-    private JPanel createButtonPanel() {
-        JPanel panel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        main.add(center, BorderLayout.CENTER);
 
+        // --------- Bottom ---------
+        JPanel bottom = new JPanel(new FlowLayout(FlowLayout.RIGHT));
         btnGenerateInvoice = new JButton("Generate Invoice");
         btnCompleteCheckout = new JButton("Complete Check-Out");
         btnCancel = new JButton("Cancel");
@@ -137,31 +129,33 @@ public class CheckOutScreen extends JDialog {
         btnCompleteCheckout.addActionListener(e -> completeCheckout());
         btnCancel.addActionListener(e -> dispose());
 
-        panel.add(btnGenerateInvoice);
-        panel.add(btnCompleteCheckout);
-        panel.add(btnCancel);
+        bottom.add(btnGenerateInvoice);
+        bottom.add(btnCompleteCheckout);
+        bottom.add(btnCancel);
 
-        return panel;
+        main.add(bottom, BorderLayout.SOUTH);
     }
+
+    // ================= Logic =================
 
     private void addListeners() {
         cmbReservations.addActionListener(e -> updateCharges());
-        addAutoUpdate(txtDiscount);
-        addAutoUpdate(txtPenalty);
-        addAutoUpdate(txtExtraServices);
+        autoUpdate(txtDiscount);
+        autoUpdate(txtPenalty);
+        autoUpdate(txtExtraServices);
     }
 
-    private void addAutoUpdate(JTextComponent comp) {
-        comp.getDocument().addDocumentListener(new DocumentListener() {
-            @Override public void insertUpdate(DocumentEvent e) { updateCharges(); }
-            @Override public void removeUpdate(DocumentEvent e) { updateCharges(); }
-            @Override public void changedUpdate(DocumentEvent e) { updateCharges(); }
+    private void autoUpdate(JTextComponent c) {
+        c.getDocument().addDocumentListener(new DocumentListener() {
+            public void insertUpdate(DocumentEvent e) { updateCharges(); }
+            public void removeUpdate(DocumentEvent e) { updateCharges(); }
+            public void changedUpdate(DocumentEvent e) { updateCharges(); }
         });
     }
 
     private void loadCheckedInReservations() {
         cmbReservations.removeAllItems();
-        for (Reservation r : getCheckedInReservationsFromDB()) {
+        for (Reservation r : getCheckedInReservations()) {
             cmbReservations.addItem(r.getId() + " | Guest " + r.getGuestId() + " | Room " + r.getRoomId());
         }
         if (cmbReservations.getItemCount() > 0) {
@@ -170,84 +164,154 @@ public class CheckOutScreen extends JDialog {
         }
     }
 
-    private List<Reservation> getCheckedInReservationsFromDB() {
+    private List<Reservation> getCheckedInReservations() {
         List<Reservation> list = new ArrayList<>();
         String sql = """
             SELECT reservation_id, guest_id, room_id, check_in_date, check_out_date, total_price
             FROM reservations
-            WHERE status = 'CHECKED_IN'
+            WHERE status='CHECKED_IN'
         """;
-
         try (Connection c = DatabaseConnection.getConnection();
-             PreparedStatement s = c.prepareStatement(sql);
-             ResultSet r = s.executeQuery()) {
+             PreparedStatement ps = c.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
 
-            while (r.next()) {
+            while (rs.next()) {
                 list.add(new Reservation(
-                        r.getInt("reservation_id"),
-                        r.getInt("guest_id"),
-                        r.getInt("room_id"),
-                        r.getString("check_in_date"),
-                        r.getString("check_out_date"),
-                        r.getDouble("total_price")
+                        rs.getInt("reservation_id"),
+                        rs.getInt("guest_id"),
+                        rs.getInt("room_id"),
+                        rs.getString("check_in_date"),
+                        rs.getString("check_out_date"),
+                        rs.getDouble("total_price")
                 ));
             }
-        } catch (Exception ex) {
-            ex.printStackTrace();
+        } catch (Exception e) {
+            e.printStackTrace();
         }
         return list;
     }
 
-    private int parseReservationId(String text) {
-        try { return Integer.parseInt(text.split("\\|")[0].trim()); }
-        catch (Exception e) { return 0; }
+    private int parseReservationId() {
+        if (cmbReservations.getSelectedItem() == null) return 0;
+        try {
+            return Integer.parseInt(cmbReservations.getSelectedItem().toString().split("\\|")[0].trim());
+        } catch (Exception e) {
+            return 0;
+        }
     }
 
     private void updateCharges() {
         tableModel.setRowCount(0);
-        if (cmbReservations.getSelectedItem() == null) return;
 
-        int id = parseReservationId(cmbReservations.getSelectedItem().toString());
-        Reservation r = reservationDAO.getReservationById(id);
+        int reservationId = parseReservationId();
+        if (reservationId == 0) return;
+
+        Reservation r = reservationDAO.getReservationById(reservationId);
         if (r == null) return;
 
-        long nights = calculateNights(r.getCheckInDate(), r.getCheckOutDate());
-        double roomPrice = getRoomPricePerNight(r.getRoomId());
+        long nights = calcNights(r.getCheckInDate(), r.getCheckOutDate());
+        double roomPrice = getRoomPrice(r.getRoomId());
 
         txtNights.setText(String.valueOf(nights));
         txtRoomPrice.setText(money(roomPrice));
 
         double roomTotal = nights * roomPrice;
-        List<ServiceLine> services = parseServices(txtExtraServices.getText());
-        double servicesTotal = services.stream().mapToDouble(x -> x.amount).sum();
-
-        double discountPct = txtDiscount.getText().isBlank()
-                ? 0.0
-                : discountDAO.getPercentageIfValid(txtDiscount.getText().trim());
-
-        double discount = (roomTotal + servicesTotal) * (discountPct / 100.0);
-        double tax = (roomTotal + servicesTotal - discount) * TAX_RATE;
+        double servicesTotal = parseServices(txtExtraServices.getText());
         double penalty = parseDouble(txtPenalty.getText());
 
-        tableModel.addRow(new Object[]{"Room Charges", money(roomTotal)});
-        for (ServiceLine s : services) {
-            tableModel.addRow(new Object[]{"Extra: " + s.name, money(s.amount)});
+        taxAmount = (roomTotal + servicesTotal) * TAX_RATE;
+        subtotal = roomTotal + servicesTotal + taxAmount + SERVICE_FEE + penalty;
+
+        // ===== DISCOUNT =====
+        double discountPct = 0;
+        if (!txtDiscount.getText().isBlank()) {
+            discountPct = discountDAO.getPercentageIfValid(txtDiscount.getText().trim());
         }
+        discountAmount = (roomTotal + servicesTotal) * (discountPct / 100.0);
 
-        tableModel.addRow(new Object[]{"DISCOUNT", "-" + money(discount)});
-        tableModel.addRow(new Object[]{"Tax", money(tax)});
+        totalAmount = subtotal - discountAmount;
+
+        // ===== Table =====
+        tableModel.addRow(new Object[]{"Room Charges", money(roomTotal)});
+        tableModel.addRow(new Object[]{"Extra Services", money(servicesTotal)});
+        tableModel.addRow(new Object[]{"Tax", money(taxAmount)});
         tableModel.addRow(new Object[]{"Service Fee", money(SERVICE_FEE)});
-
-        if (penalty > 0) tableModel.addRow(new Object[]{"Late Penalty", money(penalty)});
-
-        double subtotal = roomTotal + servicesTotal;
-        double total = (subtotal - discount) + tax + SERVICE_FEE + penalty;
+        if (penalty > 0)
+            tableModel.addRow(new Object[]{"Late Penalty", money(penalty)});
 
         tableModel.addRow(new Object[]{"SUBTOTAL", money(subtotal)});
-        tableModel.addRow(new Object[]{"TOTAL AMOUNT", money(total)});
+
+        if (discountAmount > 0) {
+            tableModel.addRow(new Object[]{
+                    "DISCOUNT (" + discountPct + "%)",
+                    "-" + money(discountAmount)
+            });
+        }
+
+        tableModel.addRow(new Object[]{"TOTAL AMOUNT", money(totalAmount)});
     }
 
-    private long calculateNights(String in, String out) {
+    private void generateInvoice() {
+        int reservationId = parseReservationId();
+        if (reservationId == 0) return;
+
+        try (Connection c = DatabaseConnection.getConnection();
+             PreparedStatement ps = c.prepareStatement(
+                     """
+                     INSERT INTO invoices
+                     (reservation_id, subtotal, discount_amount, tax_amount, total_amount, created_at)
+                     VALUES (?, ?, ?, ?, ?, ?)
+                     """)) {
+
+            ps.setInt(1, reservationId);
+            ps.setDouble(2, subtotal);
+            ps.setDouble(3, discountAmount);
+            ps.setDouble(4, taxAmount);
+            ps.setDouble(5, totalAmount);
+            ps.setString(6, LocalDateTime.now().toString());
+
+            ps.executeUpdate();
+            JOptionPane.showMessageDialog(this, "Invoice generated successfully.");
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            JOptionPane.showMessageDialog(this, "Failed to generate invoice.", "Error", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    private void completeCheckout() {
+        int reservationId = parseReservationId();
+        if (reservationId == 0) return;
+
+        Reservation r = reservationDAO.getReservationById(reservationId);
+        if (r == null) return;
+
+        try (Connection c = DatabaseConnection.getConnection()) {
+            c.setAutoCommit(false);
+
+            try (PreparedStatement p1 = c.prepareStatement(
+                    "UPDATE reservations SET status='CHECKED_OUT' WHERE reservation_id=?");
+                 PreparedStatement p2 = c.prepareStatement(
+                         "UPDATE rooms SET status='Cleaning Required' WHERE room_id=?")) {
+
+                p1.setInt(1, reservationId);
+                p2.setInt(1, r.getRoomId());
+
+                p1.executeUpdate();
+                p2.executeUpdate();
+
+                c.commit();
+                JOptionPane.showMessageDialog(this, "Check-Out completed.");
+                dispose();
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    // ================= Helpers =================
+
+    private long calcNights(String in, String out) {
         try {
             long n = ChronoUnit.DAYS.between(LocalDate.parse(in), LocalDate.parse(out));
             return Math.max(1, n);
@@ -256,130 +320,45 @@ public class CheckOutScreen extends JDialog {
         }
     }
 
-    private double getRoomPricePerNight(int roomId) {
+    private double getRoomPrice(int roomId) {
         String sql = """
             SELECT rt.base_price
             FROM rooms r
             JOIN room_types rt ON r.type_id = rt.type_id
             WHERE r.room_id = ?
         """;
-
         try (Connection c = DatabaseConnection.getConnection();
-             PreparedStatement s = c.prepareStatement(sql)) {
+             PreparedStatement ps = c.prepareStatement(sql)) {
 
-            s.setInt(1, roomId);
-            try (ResultSet r = s.executeQuery()) {
-                if (r.next()) return r.getDouble("base_price");
+            ps.setInt(1, roomId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) return rs.getDouble("base_price");
             }
-        } catch (Exception ex) {
-            ex.printStackTrace();
+        } catch (Exception e) {
+            e.printStackTrace();
         }
-        return 0.0;
+        return 0;
+    }
+
+    private double parseServices(String text) {
+        double sum = 0;
+        if (text == null || text.isBlank()) return 0;
+        for (String line : text.split("\\r?\\n")) {
+            String[] p = line.split("[:=\\-]", 2);
+            if (p.length == 2) sum += parseDouble(p[1]);
+        }
+        return sum;
     }
 
     private double parseDouble(String t) {
-        try { return Double.parseDouble(t.replace("$", "").trim()); }
-        catch (Exception e) { return 0.0; }
-    }
-
-    private String money(double v) { return String.format("$%.2f", v); }
-
-    private String getAmountFromRow(String label) {
-        for (int i = 0; i < tableModel.getRowCount(); i++) {
-            if (label.equals(tableModel.getValueAt(i, 0))) {
-                return tableModel.getValueAt(i, 1).toString();
-            }
-        }
-        return "0";
-    }
-
-    private void generateInvoice() {
-    if (cmbReservations.getSelectedIndex() == -1) return;
-
-    int reservationId = parseReservationId(cmbReservations.getSelectedItem().toString());
-
-    double subtotal = parseDouble(getAmountFromRow("SUBTOTAL"));
-    double discount = parseDouble(getAmountFromRow("DISCOUNT").replace("-", ""));
-    double tax = parseDouble(getAmountFromRow("Tax"));
-    double total = parseDouble(getAmountFromRow("TOTAL AMOUNT"));
-
-    try (Connection c = DatabaseConnection.getConnection();
-         PreparedStatement s = c.prepareStatement(
-                 "INSERT INTO invoices (reservation_id, subtotal, discount_amount, tax_amount, total_amount, created_at) VALUES (?, ?, ?, ?, ?, ?)",
-                 Statement.RETURN_GENERATED_KEYS)) {
-
-        s.setInt(1, reservationId);
-        s.setDouble(2, subtotal);
-        s.setDouble(3, discount);
-        s.setDouble(4, tax);
-        s.setDouble(5, total);
-        s.setString(6, java.time.LocalDateTime.now().toString());
-
-        s.executeUpdate();
-
-        try (ResultSet r = s.getGeneratedKeys()) {
-            if (r.next()) {
-                JOptionPane.showMessageDialog(this, "Invoice saved. ID: " + r.getInt(1));
-            }
-        }
-    } catch (Exception ex) {
-        ex.printStackTrace();
-        JOptionPane.showMessageDialog(this, "Error saving invoice: " + ex.getMessage(),
-                "DB Error", JOptionPane.ERROR_MESSAGE);
-    }
-}
-
-
-    private void completeCheckout() {
-        if (cmbReservations.getSelectedIndex() == -1) return;
-
-        int reservationId = parseReservationId(cmbReservations.getSelectedItem().toString());
-        Reservation r = reservationDAO.getReservationById(reservationId);
-        if (r == null) return;
-
-        try (Connection c = DatabaseConnection.getConnection()) {
-            c.setAutoCommit(false);
-
-            try (PreparedStatement s1 = c.prepareStatement(
-                    "UPDATE reservations SET status='CHECKED_OUT' WHERE reservation_id=?");
-                 PreparedStatement s2 = c.prepareStatement(
-                         "UPDATE rooms SET status='Cleaning Required' WHERE room_id=?")) {
-
-                s1.setInt(1, reservationId);
-                s2.setInt(1, r.getRoomId());
-
-                s1.executeUpdate();
-                s2.executeUpdate();
-
-                c.commit();
-                JOptionPane.showMessageDialog(this, "Check-Out completed successfully.");
-                loadCheckedInReservations();
-                dispose();
-            } catch (Exception ex) {
-                c.rollback();
-                ex.printStackTrace();
-            }
-        } catch (Exception ex) {
-            ex.printStackTrace();
+        try {
+            return Double.parseDouble(t.replace("$", "").trim());
+        } catch (Exception e) {
+            return 0;
         }
     }
 
-    private static class ServiceLine {
-        String name; double amount;
-        ServiceLine(String n, double a) { name = n; amount = a; }
-    }
-
-    private List<ServiceLine> parseServices(String text) {
-        List<ServiceLine> list = new ArrayList<>();
-        if (text == null || text.isBlank()) return list;
-
-        for (String line : text.split("\\r?\\n")) {
-            String[] p = line.split("[:=\\-]", 2);
-            if (p.length == 2) {
-                double a = parseDouble(p[1]);
-                if (a > 0) list.add(new ServiceLine(p[0].trim(), a));
-            }
-        }
-        return list;
+    private String money(double v) {
+        return String.format("$%.2f", v);
     }
 }

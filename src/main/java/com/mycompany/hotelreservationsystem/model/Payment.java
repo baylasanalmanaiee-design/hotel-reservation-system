@@ -5,8 +5,8 @@ public class Payment {
     private int invoiceId;
     private double amount;
     private String method;
-    private String paidAt;  
-
+    private String paidAt; 
+    
     public Payment() {}
 
     public Payment(int id, int invoiceId, double amount, String method, String paidAt) {

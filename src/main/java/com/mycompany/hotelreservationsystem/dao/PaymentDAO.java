@@ -11,7 +11,6 @@ public class PaymentDAO {
 
     public static List<Payment> getByInvoice(int invoiceId) {
         List<Payment> list = new ArrayList<>();
-
         String sql = """
             SELECT payment_id, invoice_id, amount, method, paid_at
             FROM payments
@@ -37,7 +36,6 @@ public class PaymentDAO {
         } catch (Exception e) {
             e.printStackTrace();
         }
-
         return list;
     }
 
@@ -60,10 +58,10 @@ public class PaymentDAO {
             try (ResultSet keys = ps.getGeneratedKeys()) {
                 if (keys.next()) return keys.getInt(1);
             }
+
         } catch (Exception e) {
             e.printStackTrace();
         }
-
         return 0;
     }
 }

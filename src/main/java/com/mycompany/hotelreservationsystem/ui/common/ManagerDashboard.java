@@ -8,12 +8,13 @@ import com.mycompany.hotelreservationsystem.ui.reservation.ManageReservationsScr
 import com.mycompany.hotelreservationsystem.ui.rooms.ManageRoomsScreen;
 import com.mycompany.hotelreservationsystem.ui.rooms.ManageRoomTypesScreen;
 import com.mycompany.hotelreservationsystem.ui.billing.IncomeReportScreen;
+import com.mycompany.hotelreservationsystem.ui.billing.ManageDiscountsScreen; // ✅
 
 public class ManagerDashboard extends JFrame {
 
     public ManagerDashboard() {
         setTitle("Manager Dashboard");
-        setSize(450, 400);
+        setSize(450, 420);
         setLocationRelativeTo(null);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLayout(null);
@@ -38,14 +39,19 @@ public class ManagerDashboard extends JFrame {
         JButton incomeReport = new JButton("Income Report");
         incomeReport.setBounds(135, 220, 180, 30);
 
+        // ✅ زر الخصومات
+        JButton btnDiscounts = new JButton("Manage Discounts");
+        btnDiscounts.setBounds(135, 260, 180, 30);
+
         JButton logout = new JButton("Logout");
-        logout.setBounds(135, 270, 180, 30);
+        logout.setBounds(135, 310, 180, 30);
 
         styleButton(manageRooms, new Color(70, 130, 180));
         styleButton(manageRoomTypes, new Color(40, 167, 69));
         styleButton(roomStatus, new Color(111, 66, 193));
         styleButton(reservationsReport, new Color(255, 193, 7));
         styleButton(incomeReport, new Color(23, 162, 184));
+        styleButton(btnDiscounts, new Color(220, 53, 69)); // ✅
         styleButton(logout, new Color(108, 117, 125));
 
         manageRooms.addActionListener(e -> openManageRooms());
@@ -53,6 +59,9 @@ public class ManagerDashboard extends JFrame {
         roomStatus.addActionListener(e -> openRoomStatus());
         reservationsReport.addActionListener(e -> openReservationsReport());
         incomeReport.addActionListener(e -> openIncomeReport());
+
+        // ✅ فتح شاشة الخصومات (تأكد أنها في ui.billing)
+        btnDiscounts.addActionListener(e -> new ManageDiscountsScreen(this).setVisible(true));
 
         logout.addActionListener(e -> {
             int confirm = JOptionPane.showConfirmDialog(
@@ -72,6 +81,7 @@ public class ManagerDashboard extends JFrame {
         add(roomStatus);
         add(reservationsReport);
         add(incomeReport);
+        add(btnDiscounts); // ✅ لازم
         add(logout);
 
         setVisible(true);
