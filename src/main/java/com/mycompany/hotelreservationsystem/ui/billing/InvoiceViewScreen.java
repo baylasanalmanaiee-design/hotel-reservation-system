@@ -15,6 +15,7 @@ public class InvoiceViewScreen extends JDialog {
     private JLabel lblInvoiceId;
     private JLabel lblReservation;
     private JLabel lblDate;
+
     private JLabel lblTotal;
     private JLabel lblPaid;
     private JLabel lblBalance;
@@ -31,7 +32,7 @@ public class InvoiceViewScreen extends JDialog {
 
     public InvoiceViewScreen(JFrame parent, String reservationCode) {
         super(parent, "Invoice View", true);
-        setSize(700, 500);
+        setSize(720, 520);
         setLocationRelativeTo(parent);
         initUI();
         loadInvoiceAndPayments(reservationCode);
@@ -41,15 +42,13 @@ public class InvoiceViewScreen extends JDialog {
         JPanel main = new JPanel(new BorderLayout(10, 10));
         main.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
 
+        // ===== Header =====
         JPanel header = new JPanel(new GridLayout(3, 2, 10, 8));
         header.setBorder(BorderFactory.createTitledBorder("Invoice Info"));
 
         lblInvoiceId = new JLabel("-");
         lblReservation = new JLabel("-");
         lblDate = new JLabel("-");
-        lblTotal = new JLabel("-");
-        lblPaid = new JLabel("-");
-        lblBalance = new JLabel("-");
 
         header.add(new JLabel("Invoice ID:"));
         header.add(lblInvoiceId);
@@ -58,8 +57,13 @@ public class InvoiceViewScreen extends JDialog {
         header.add(new JLabel("Created At:"));
         header.add(lblDate);
 
+        // ===== Totals =====
         JPanel totals = new JPanel(new GridLayout(1, 6, 10, 8));
         totals.setBorder(BorderFactory.createTitledBorder("Totals"));
+
+        lblTotal = new JLabel("-");
+        lblPaid = new JLabel("-");
+        lblBalance = new JLabel("-");
 
         totals.add(new JLabel("Total:"));
         totals.add(lblTotal);
@@ -72,18 +76,19 @@ public class InvoiceViewScreen extends JDialog {
         top.add(header, BorderLayout.CENTER);
         top.add(totals, BorderLayout.SOUTH);
 
+        // ===== Payments Table =====
         paymentsModel = new DefaultTableModel(new String[]{"Payment ID", "Amount", "Method", "Paid At"}, 0) {
-            @Override
-            public boolean isCellEditable(int row, int column) {
-                return false;
-            }
+            @Override public boolean isCellEditable(int row, int column) { return false; }
         };
         paymentsTable = new JTable(paymentsModel);
+        paymentsTable.setRowHeight(24);
+
         JScrollPane scroll = new JScrollPane(paymentsTable);
         JPanel center = new JPanel(new BorderLayout());
         center.setBorder(BorderFactory.createTitledBorder("Payments"));
         center.add(scroll, BorderLayout.CENTER);
 
+        // ===== Add Payment =====
         JPanel payPanel = new JPanel(new GridLayout(1, 6, 10, 8));
         payPanel.setBorder(BorderFactory.createTitledBorder("Add Payment"));
 
@@ -102,6 +107,7 @@ public class InvoiceViewScreen extends JDialog {
         btnAddPayment.addActionListener(e -> addPayment());
         btnClose.addActionListener(e -> dispose());
 
+        // ===== Layout =====
         main.add(top, BorderLayout.NORTH);
         main.add(center, BorderLayout.CENTER);
         main.add(payPanel, BorderLayout.SOUTH);
@@ -111,23 +117,23 @@ public class InvoiceViewScreen extends JDialog {
 
     private int parseReservationId(String reservationCode) {
         if (reservationCode == null) return 0;
+
         String code = reservationCode.trim();
-        if (code.startsWith("RES")) {
+
+        // لو جاك مثل: RES005 أو RES005 | Guest ...
+        if (code.toUpperCase().startsWith("RES")) {
             String num = code.substring(3).replaceAll("\\D+", "");
-            if (num.isEmpty()) return 0;
-            try {
-                return Integer.parseInt(num);
-            } catch (NumberFormatException ignored) {
-                return 0;
+            if (!num.isEmpty()) {
+                try { return Integer.parseInt(num); } catch (NumberFormatException ignored) {}
             }
         }
+
+        // fallback: أي رقم داخل النص
         String digits = code.replaceAll("\\D+", "");
         if (digits.isEmpty()) return 0;
-        try {
-            return Integer.parseInt(digits);
-        } catch (NumberFormatException ignored) {
-            return 0;
-        }
+
+        try { return Integer.parseInt(digits); }
+        catch (NumberFormatException ignored) { return 0; }
     }
 
     private void loadInvoiceAndPayments(String reservationCode) {
@@ -143,13 +149,19 @@ public class InvoiceViewScreen extends JDialog {
             lblPaid.setText("$0.00");
             lblBalance.setText("$0.00");
             paymentsModel.setRowCount(0);
-            JOptionPane.showMessageDialog(this, "No invoice found for this reservation.", "Info", JOptionPane.INFORMATION_MESSAGE);
+
+            JOptionPane.showMessageDialog(
+                    this,
+                    "No invoice found for this reservation.",
+                    "Info",
+                    JOptionPane.INFORMATION_MESSAGE
+            );
             return;
         }
 
         lblInvoiceId.setText(String.valueOf(invoice.getId()));
         lblReservation.setText("RES" + String.format("%03d", invoice.getReservationId()));
-        lblDate.setText(invoice.getDate());
+        lblDate.setText(invoice.getCreatedAt()); // ✅ created_at
 
         refreshPayments();
     }
@@ -157,17 +169,18 @@ public class InvoiceViewScreen extends JDialog {
     private void refreshPayments() {
         paymentsModel.setRowCount(0);
 
-        double total = invoice.getAmount();
+        double total = invoice.getTotalAmount(); // ✅ total_amount
         double paid = 0.0;
 
         List<Payment> payments = PaymentDAO.getByInvoice(invoice.getId());
         for (Payment p : payments) {
             paid += p.getAmount();
+
             paymentsModel.addRow(new Object[]{
                     p.getId(),
                     String.format("$%.2f", p.getAmount()),
                     p.getMethod(),
-                    p.getDate()
+                    p.getPaidAt() // ✅ paid_at
             });
         }
 
@@ -208,7 +221,7 @@ public class InvoiceViewScreen extends JDialog {
         p.setInvoiceId(invoice.getId());
         p.setAmount(amt);
         p.setMethod(String.valueOf(cmbPayMethod.getSelectedItem()));
-        p.setDate(java.time.LocalDateTime.now().toString());
+        p.setPaidAt(java.time.LocalDateTime.now().toString()); // ✅ paid_at
 
         int newId = PaymentDAO.insert(p);
         if (newId > 0) {

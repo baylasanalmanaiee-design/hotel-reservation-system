@@ -3,6 +3,8 @@ package com.mycompany.hotelreservationsystem.ui.billing;
 import com.mycompany.hotelreservationsystem.DatabaseConnection;
 import com.mycompany.hotelreservationsystem.dao.DiscountDAO;
 import com.mycompany.hotelreservationsystem.dao.ReservationDAO;
+import com.mycompany.hotelreservationsystem.dao.InvoiceDAO;
+import com.mycompany.hotelreservationsystem.model.Invoice;
 import com.mycompany.hotelreservationsystem.model.Reservation;
 
 import javax.swing.*;
@@ -219,29 +221,29 @@ public class CheckOutScreen extends JDialog {
         List<ServiceLine> services = parseServices(txtExtraServices.getText());
         double servicesTotal = services.stream().mapToDouble(x -> x.amount).sum();
 
-        double tax = (roomTotal + servicesTotal) * TAX_RATE;
+        double discountPct = txtDiscount.getText().isBlank()
+                ? 0.0
+                : discountDAO.getPercentageIfValid(txtDiscount.getText().trim());
+
+        double discount = (roomTotal + servicesTotal) * (discountPct / 100.0);
+        double tax = (roomTotal + servicesTotal - discount) * TAX_RATE;
         double penalty = parseDouble(txtPenalty.getText());
 
         tableModel.addRow(new Object[]{"Room Charges", money(roomTotal)});
-
         for (ServiceLine s : services) {
             tableModel.addRow(new Object[]{"Extra: " + s.name, money(s.amount)});
         }
 
+        tableModel.addRow(new Object[]{"DISCOUNT", "-" + money(discount)});
         tableModel.addRow(new Object[]{"Tax", money(tax)});
         tableModel.addRow(new Object[]{"Service Fee", money(SERVICE_FEE)});
 
-        if (penalty > 0) {
-            tableModel.addRow(new Object[]{"Late Penalty", money(penalty)});
-        }
+        if (penalty > 0) tableModel.addRow(new Object[]{"Late Penalty", money(penalty)});
 
-        double subtotal = roomTotal + servicesTotal + tax + SERVICE_FEE + penalty;
-        double discountPct = txtDiscount.getText().isBlank() ? 0.0 : discountDAO.getPercentageIfValid(txtDiscount.getText().trim());
-        double discount = (roomTotal + servicesTotal) * (discountPct / 100.0);
-        double total = subtotal - discount;
+        double subtotal = roomTotal + servicesTotal;
+        double total = (subtotal - discount) + tax + SERVICE_FEE + penalty;
 
         tableModel.addRow(new Object[]{"SUBTOTAL", money(subtotal)});
-        tableModel.addRow(new Object[]{"DISCOUNT", "-" + money(discount)});
         tableModel.addRow(new Object[]{"TOTAL AMOUNT", money(total)});
     }
 
@@ -276,42 +278,11 @@ public class CheckOutScreen extends JDialog {
     }
 
     private double parseDouble(String t) {
-        try {
-            return Double.parseDouble(t.replace("$", "").trim());
-        } catch (Exception e) {
-            return 0.0;
-        }
+        try { return Double.parseDouble(t.replace("$", "").trim()); }
+        catch (Exception e) { return 0.0; }
     }
 
-    private String money(double v) {
-        return String.format("$%.2f", v);
-    }
-
-    private void generateInvoice() {
-        if (cmbReservations.getSelectedIndex() == -1) return;
-
-        int reservationId = parseReservationId(cmbReservations.getSelectedItem().toString());
-        double total = parseDouble(getAmountFromRow("TOTAL AMOUNT"));
-
-        try (Connection c = DatabaseConnection.getConnection();
-             PreparedStatement s = c.prepareStatement(
-                     "INSERT INTO invoices (reservation_id, amount, date) VALUES (?, ?, ?)",
-                     Statement.RETURN_GENERATED_KEYS)) {
-
-            s.setInt(1, reservationId);
-            s.setDouble(2, total);
-            s.setString(3, java.time.LocalDateTime.now().toString());
-            s.executeUpdate();
-
-            try (ResultSet r = s.getGeneratedKeys()) {
-                if (r.next()) {
-                    JOptionPane.showMessageDialog(this, "Invoice saved. ID: " + r.getInt(1));
-                }
-            }
-        } catch (Exception ex) {
-            ex.printStackTrace();
-        }
-    }
+    private String money(double v) { return String.format("$%.2f", v); }
 
     private String getAmountFromRow(String label) {
         for (int i = 0; i < tableModel.getRowCount(); i++) {
@@ -321,6 +292,43 @@ public class CheckOutScreen extends JDialog {
         }
         return "0";
     }
+
+    private void generateInvoice() {
+    if (cmbReservations.getSelectedIndex() == -1) return;
+
+    int reservationId = parseReservationId(cmbReservations.getSelectedItem().toString());
+
+    double subtotal = parseDouble(getAmountFromRow("SUBTOTAL"));
+    double discount = parseDouble(getAmountFromRow("DISCOUNT").replace("-", ""));
+    double tax = parseDouble(getAmountFromRow("Tax"));
+    double total = parseDouble(getAmountFromRow("TOTAL AMOUNT"));
+
+    try (Connection c = DatabaseConnection.getConnection();
+         PreparedStatement s = c.prepareStatement(
+                 "INSERT INTO invoices (reservation_id, subtotal, discount_amount, tax_amount, total_amount, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+                 Statement.RETURN_GENERATED_KEYS)) {
+
+        s.setInt(1, reservationId);
+        s.setDouble(2, subtotal);
+        s.setDouble(3, discount);
+        s.setDouble(4, tax);
+        s.setDouble(5, total);
+        s.setString(6, java.time.LocalDateTime.now().toString());
+
+        s.executeUpdate();
+
+        try (ResultSet r = s.getGeneratedKeys()) {
+            if (r.next()) {
+                JOptionPane.showMessageDialog(this, "Invoice saved. ID: " + r.getInt(1));
+            }
+        }
+    } catch (Exception ex) {
+        ex.printStackTrace();
+        JOptionPane.showMessageDialog(this, "Error saving invoice: " + ex.getMessage(),
+                "DB Error", JOptionPane.ERROR_MESSAGE);
+    }
+}
+
 
     private void completeCheckout() {
         if (cmbReservations.getSelectedIndex() == -1) return;
@@ -357,12 +365,8 @@ public class CheckOutScreen extends JDialog {
     }
 
     private static class ServiceLine {
-        String name;
-        double amount;
-        ServiceLine(String n, double a) {
-            name = n;
-            amount = a;
-        }
+        String name; double amount;
+        ServiceLine(String n, double a) { name = n; amount = a; }
     }
 
     private List<ServiceLine> parseServices(String text) {

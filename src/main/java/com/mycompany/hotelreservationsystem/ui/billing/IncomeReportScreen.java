@@ -8,9 +8,7 @@ import java.awt.*;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
-import java.util.HashSet;
 import java.util.Locale;
-import java.util.Set;
 
 public class IncomeReportScreen extends JDialog {
 
@@ -79,81 +77,40 @@ public class IncomeReportScreen extends JDialog {
         double totalInvoices = 0.0;
         double totalPayments = 0.0;
 
-        try (Connection conn = DatabaseConnection.getConnection()) {
+        String sql = """
+            SELECT 
+                i.invoice_id,
+                i.reservation_id,
+                i.total_amount,
+                i.created_at,
+                IFNULL(SUM(p.amount), 0) AS paid_amount
+            FROM invoices i
+            LEFT JOIN payments p ON p.invoice_id = i.invoice_id
+            GROUP BY i.invoice_id
+            ORDER BY i.invoice_id DESC
+        """;
 
-            String invIdCol = pickFirstExisting(conn, "invoices", new String[]{"invoice_id", "id"});
-            String invResCol = pickFirstExisting(conn, "invoices", new String[]{"reservation_id", "res_id"});
-            String invAmountCol = pickFirstExisting(conn, "invoices", new String[]{"amount", "total_amount", "total", "invoice_amount"});
-            String invDateCol = pickFirstExisting(conn, "invoices", new String[]{"date", "invoice_date", "created_at", "issue_date"});
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
 
-            if (invIdCol == null || invResCol == null || invAmountCol == null) {
-                JOptionPane.showMessageDialog(
-                        this,
-                        "Income Report Error: invoices table columns not compatible.\n" +
-                                "Need: invoice_id/id, reservation_id, amount/total_amount/total.",
-                        "SQL Error",
-                        JOptionPane.ERROR_MESSAGE
-                );
-                return;
-            }
+            while (rs.next()) {
+                int invoiceId = rs.getInt("invoice_id");
+                int reservationId = rs.getInt("reservation_id");
+                double invoiceAmount = rs.getDouble("total_amount");
+                String invoiceDate = rs.getString("created_at");
+                double paidAmount = rs.getDouble("paid_amount");
 
-            String payAmountCol = pickFirstExisting(conn, "payments", new String[]{"amount", "paid_amount", "payment_amount"});
-            String payInvoiceCol = pickFirstExisting(conn, "payments", new String[]{"invoice_id", "inv_id"});
-            String payResCol = pickFirstExisting(conn, "payments", new String[]{"reservation_id", "res_id"});
+                totalInvoices += invoiceAmount;
+                totalPayments += paidAmount;
 
-            String joinOn;
-            if (payAmountCol != null && payInvoiceCol != null) {
-                joinOn = "p." + payInvoiceCol + " = i." + invIdCol;
-            } else if (payAmountCol != null && payResCol != null) {
-                joinOn = "p." + payResCol + " = i." + invResCol;
-            } else {
-                joinOn = null;
-            }
-
-            String dateSelect = (invDateCol != null) ? ("i." + invDateCol + " AS invoice_date") : ("'' AS invoice_date");
-
-            String paidSelect = (joinOn != null)
-                    ? ("IFNULL(SUM(p." + payAmountCol + "), 0) AS paid_amount")
-                    : ("0 AS paid_amount");
-
-            String fromJoin = (joinOn != null)
-                    ? ("FROM invoices i LEFT JOIN payments p ON " + joinOn)
-                    : ("FROM invoices i");
-
-            String groupBy = "GROUP BY i." + invIdCol;
-            String orderBy = "ORDER BY i." + invIdCol + " DESC";
-
-            String sql = "SELECT " +
-                    "i." + invIdCol + " AS invoice_id, " +
-                    "i." + invResCol + " AS reservation_id, " +
-                    "i." + invAmountCol + " AS invoice_amount, " +
-                    dateSelect + ", " +
-                    paidSelect + " " +
-                    fromJoin + " " +
-                    groupBy + " " +
-                    orderBy;
-
-            try (PreparedStatement ps = conn.prepareStatement(sql);
-                 ResultSet rs = ps.executeQuery()) {
-
-                while (rs.next()) {
-                    int invoiceId = rs.getInt("invoice_id");
-                    int reservationId = rs.getInt("reservation_id");
-                    double invoiceAmount = rs.getDouble("invoice_amount");
-                    String invoiceDate = rs.getString("invoice_date");
-                    double paidAmount = rs.getDouble("paid_amount");
-
-                    totalInvoices += invoiceAmount;
-                    totalPayments += paidAmount;
-
-                    model.addRow(new Object[]{
-                            invoiceId,
-                            reservationId,
-                            money(invoiceAmount),
-                            invoiceDate,
-                            money(paidAmount)
-                    });
-                }
+                model.addRow(new Object[]{
+                        invoiceId,
+                        reservationId,
+                        money(invoiceAmount),
+                        invoiceDate,
+                        money(paidAmount)
+                });
             }
 
             lblTotalInvoices.setText("Total Invoices: " + money(totalInvoices));
@@ -172,23 +129,5 @@ public class IncomeReportScreen extends JDialog {
 
     private String money(double v) {
         return String.format(Locale.US, "%.2f", v);
-    }
-
-    private String pickFirstExisting(Connection conn, String tableName, String[] candidates) {
-        Set<String> cols = new HashSet<>();
-        try (PreparedStatement ps = conn.prepareStatement("PRAGMA table_info(" + tableName + ")");
-             ResultSet rs = ps.executeQuery()) {
-            while (rs.next()) {
-                String name = rs.getString("name");
-                if (name != null) cols.add(name.trim().toLowerCase());
-            }
-        } catch (Exception e) {
-            return null;
-        }
-
-        for (String c : candidates) {
-            if (cols.contains(c.toLowerCase())) return c;
-        }
-        return null;
     }
 }
