@@ -12,6 +12,12 @@ The project is a desktop application designed to support hotel reservation manag
 - Database integration
 - NetBeans
 
+  
+## Documentation
+
+📄 [View Project Report](./Hotel-Reservation-System-Report.pdf)
+
+
 ## Project Type
 
 Team-based Academic Project
